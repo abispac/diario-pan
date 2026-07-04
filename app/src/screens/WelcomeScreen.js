@@ -26,11 +26,7 @@ import {
   setNotificationTime,
   markWelcomeCompleted,
 } from "../notifications";
-import { SERVER_URL } from "../api";
-
-// The presentation video. Host it on the same server (drop
-// welcome.mp4 into server/public/) or point this anywhere else.
-const WELCOME_VIDEO_URL = `${SERVER_URL}/welcome.mp4`;
+import { welcomeVideoUrl } from "../api";
 
 export default function WelcomeScreen({ navigation }) {
   const theme = useContext(ThemeContext);
@@ -70,7 +66,8 @@ export default function WelcomeScreen({ navigation }) {
         // ---------------- STEP 1: presentation video ----------------
         <View style={styles.videoWrap}>
           <Video
-            source={{ uri: WELCOME_VIDEO_URL }}
+            // The presentation video: welcome.mp4 in server/public/.
+            source={{ uri: welcomeVideoUrl() }}
             style={styles.video}
             resizeMode={ResizeMode.CONTAIN}
             shouldPlay

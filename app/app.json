@@ -15,7 +15,11 @@
       "bundleIdentifier": "com.diariopan.app",
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "_comment": "Allows plain http:// so the TestFlight build can stream from a MacBook on local WiFi. Once fully on https (Namecheap + certbot), remove NSAppTransportSecurity for App Store release."
+        }
       }
     },
     "android": {

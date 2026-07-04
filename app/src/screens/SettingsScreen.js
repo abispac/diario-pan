@@ -17,9 +17,11 @@ import {
   ScrollView,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { TextInput } from "react-native";
 import { ThemeContext } from "../../App";
 import { PALETTES } from "../theme";
 import { getNotificationTime, setNotificationTime } from "../notifications";
+import { getServerUrl, setServerUrl, DEFAULT_SERVER_URL } from "../api";
 
 export default function SettingsScreen({ navigation }) {
   const theme = useContext(ThemeContext);
@@ -139,6 +141,36 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </View>
 
+      {/* ---------- Advanced: server address ----------
+          Lets the SAME build talk to a test server today (e.g. a
+          MacBook on the local WiFi) and the real server tomorrow,
+          with no rebuild. Normal users never need to touch this -
+          leaving it empty uses the official server. */}
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>🔧 Avanzado</Text>
+        <Text style={[styles.cardHint, { color: theme.textMuted }]}>
+          Dirección del servidor. Déjalo vacío para usar el oficial
+          ({DEFAULT_SERVER_URL}). Solo para pruebas.
+        </Text>
+        <TextInput
+          style={[styles.urlInput, { borderColor: theme.accent, color: theme.text }]}
+          defaultValue={getServerUrl() === DEFAULT_SERVER_URL ? "" : getServerUrl()}
+          placeholder={DEFAULT_SERVER_URL}
+          placeholderTextColor="#bbb"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          // Apply when the user finishes typing (keyboard "done"
+          // or tapping elsewhere) - same instant-save pattern as
+          // the rest of the screen.
+          onEndEditing={async (e) => {
+            await setServerUrl(e.nativeEvent.text);
+            setSavedFlash(true);
+            setTimeout(() => setSavedFlash(false), 2000);
+          }}
+        />
+      </View>
+
       {/* ---------- About ---------- */}
       <Text style={[styles.about, { color: theme.textMuted }]}>
         Diario Pan · código abierto, hecho con ❤️ por nuestra iglesia
@@ -177,5 +209,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 } },
   swatchCheck: { color: "#fff", fontSize: 20, fontWeight: "800" },
   swatchName: { marginTop: 6, fontSize: 12, fontWeight: "600" },
+  urlInput: {
+    borderWidth: 2, borderRadius: 10, padding: 12, fontSize: 14,
+  },
   about: { textAlign: "center", fontSize: 12, marginTop: 12 },
 });

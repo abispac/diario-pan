@@ -23,6 +23,7 @@ import HomeScreen from "./src/screens/HomeScreen";
 import PlayerScreen from "./src/screens/PlayerScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import { hasCompletedWelcome } from "./src/notifications";
+import { loadServerUrl } from "./src/api";
 import { PALETTES, DEFAULT_PALETTE, COMMON } from "./src/theme";
 
 const Stack = createNativeStackNavigator();
@@ -37,10 +38,12 @@ export default function App() {
   const [welcomed, setWelcomed] = useState(null);
   const [paletteKey, setPaletteKey] = useState(DEFAULT_PALETTE);
 
-  // On startup: was the welcome flow already completed, and which
-  // color palette did the user pick last time?
+  // On startup: load the saved server URL override (if any),
+  // check whether the welcome flow was already completed, and
+  // restore the color palette the user picked last time.
   useEffect(() => {
     (async () => {
+      await loadServerUrl(); // must happen before any screen fetches
       setWelcomed(await hasCompletedWelcome());
       const saved = await AsyncStorage.getItem(KEY_PALETTE);
       if (saved && PALETTES[saved]) setPaletteKey(saved);
