@@ -15,7 +15,9 @@
       "bundleIdentifier": "com.diariopan.app",
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "_comment": "Allows plain http:// so the TestFlight build can stream from a MacBook on local WiFi. Once fully on https (Namecheap + certbot), remove NSAppTransportSecurity for App Store release."
@@ -28,7 +30,10 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f5ede3"
       },
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "SCHEDULE_EXACT_ALARM"]
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM"
+      ]
     },
     "plugins": [
       [
@@ -40,8 +45,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE-WITH-YOUR-EAS-PROJECT-ID"
+        "projectId": "a2467deb-23c5-4316-bfa1-a24f570f23c0"
       }
-    }
+    },
+    "owner": "abispac"
   }
 }
