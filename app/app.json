@@ -16,12 +16,14 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "_comment": "Allows plain http:// so the TestFlight build can stream from a MacBook on local WiFi. Once fully on https (Namecheap + certbot), remove NSAppTransportSecurity for App Store release."
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
