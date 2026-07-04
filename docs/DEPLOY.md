@@ -92,6 +92,23 @@ Push notifications work out of the box on Android. For iOS, EAS walks
 you through generating the push key the first time you build — say yes
 to everything.
 
+### URLs the stores will ask you for
+
+When filling out the App Store Connect / Play Console listings:
+
+| Field | URL |
+|-------|-----|
+| Privacy Policy URL (required by both) | `https://diariopan.com/privacidad` |
+| Support URL (required by Apple) | `https://diariopan.com/soporte` |
+| Marketing URL (optional) | `https://diariopan.com` |
+
+For Apple's "App Privacy" questionnaire: the app collects **no**
+data linked to identity — only an anonymous push token + chosen
+notification time ("Identifiers: Device ID — used for App
+Functionality — not linked to identity, not used for tracking").
+Answer "no" to tracking. Replace `contacto@diariopan.com` in the
+privacy/support pages with your real contact email.
+
 Once both apps are live, put the store URLs into `server/.env`
 (`ANDROID_STORE_URL`, `IOS_STORE_URL`) and restart — the QR codes on
 `/descargar` update automatically. Print that page for the church. 🎉

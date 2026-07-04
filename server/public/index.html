@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!-- ==============================================================
+  index.html - the public home page of diariopan.com
+
+  This is what anyone sees when they visit the site: today's
+  devotional front and center, ready to play (no ads, ever),
+  and below it the archive of past days to pick from.
+
+  It talks to the same two public endpoints the mobile app uses:
+    GET /api/videos             -> list of published videos
+    GET /api/videos/:id/stream  -> the video bytes (local disk or
+                                   Google Drive, server decides)
+  No login, no tracking, no cookies. Just the Word, in peace.
+=============================================================== -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diario Pan — Tu devocional de cada día</title>
+  <meta name="description" content="El devocional diario de nuestra iglesia, sin anuncios y a la hora que tú elijas." />
+  <style>
+    /* ------- Branding: same three variables as the other pages.
+       Swap these when the real church colors arrive. ------------ */
+    :root {
+      --brand: #7c4a1e;        /* warm bread-brown */
+      --brand-light: #f5ede3;  /* soft warm background */
+      --brand-dark: #4e2d10;
+      --card: #ffffff;
+      --text: #2b2018;
+      --muted: #8a7a68;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Georgia, "Times New Roman", serif; /* warm, book-like */
+      background: var(--brand-light);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    /* Sans-serif for UI bits; serif stays for headings/verse. */
+    .ui { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+    /* ---------------- header ---------------- */
+    header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 20px clamp(16px, 5vw, 48px);
+    }
+    .logo {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--brand); color: #fff; font-size: 26px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-name { font-size: 26px; font-weight: 700; color: var(--brand-dark); }
+    .brand-tag { font-size: 13px; color: var(--muted); }
+    header .spacer { flex: 1; }
+    .app-link {
+      background: var(--brand); color: #fff; text-decoration: none;
+      padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .app-link:hover { background: var(--brand-dark); }
+
+    /* ---------------- main layout ---------------- */
+    main {
+      max-width: 1100px; margin: 0 auto;
+      padding: 8px clamp(16px, 5vw, 48px) 64px;
+    }
+
+    /* A gentle greeting above the player, like opening a book. */
+    .greeting { text-align: center; margin: 12px 0 24px; }
+    .greeting h1 {
+      font-size: clamp(24px, 4vw, 34px); color: var(--brand-dark);
+      font-weight: 700;
+    }
+    .greeting p { color: var(--muted); margin-top: 6px; font-size: 16px; font-style: italic; }
+
+    /* ---------------- the player card ---------------- */
+    .player-card {
+      background: var(--card); border-radius: 20px; overflow: hidden;
+      box-shadow: 0 6px 32px rgba(78, 45, 16, .12);
+    }
+    .player-card video {
+      width: 100%; aspect-ratio: 16 / 9; display: block;
+      background: #000;
+    }
+    .player-meta {
+      display: flex; align-items: center; gap: 12px;
+      padding: 18px 22px;
+    }
+    .player-meta .today-badge {
+      background: var(--brand); color: #fff; border-radius: 8px;
+      padding: 4px 10px; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+    }
+    .player-title { font-size: 19px; font-weight: 700; color: var(--brand-dark); }
+    .player-date { font-size: 14px; color: var(--muted); text-transform: capitalize; }
+
+    /* ---------------- past videos ---------------- */
+    .archive-heading {
+      margin: 44px 0 18px; font-size: 22px; color: var(--brand-dark);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .archive-heading::after {          /* a soft rule line that fills the row */
+      content: ""; flex: 1; height: 1px; background: #e2d5c3;
+    }
+    .grid {
+      display: grid; gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    .video-card {
+      background: var(--card); border-radius: 14px; padding: 16px;
+      display: flex; align-items: center; gap: 14px;
+      cursor: pointer; border: 2px solid transparent;
+      box-shadow: 0 2px 10px rgba(78, 45, 16, .07);
+      transition: transform .12s, border-color .12s;
+      text-align: left; width: 100%;
+    }
+    .video-card:hover { transform: translateY(-2px); border-color: var(--brand); }
+    .video-card.active { border-color: var(--brand); background: #fdf9f2; }
+    .play-dot {
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      background: var(--brand); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .video-card .t { font-weight: 700; font-size: 15px; color: var(--text); }
+    .video-card .d { font-size: 13px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+
+    /* ---------------- empty / loading states ---------------- */
+    .state { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 16px; }
+
+    footer {
+      text-align: center; color: #b0a290; font-size: 13px;
+      padding: 24px; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    footer a { color: var(--brand); }
+  </style>
+</head>
+<body>
+  <header class="ui">
+    <!-- Placeholder logo - replace with the church logo image -->
+    <div class="logo">🍞</div>
+    <div>
+      <div class="brand-name" style="font-family: Georgia, serif;">Diario Pan</div>
+      <div class="brand-tag">El devocional de cada día, sin anuncios</div>
+    </div>
+    <div class="spacer"></div>
+    <!-- Send visitors to the QR page to install the app -->
+    <a class="app-link" href="/descargar">📱 Descarga la app</a>
+  </header>
+
+  <main>
+    <div class="greeting">
+      <h1 id="greeting">Bienvenido</h1>
+      <p>«No solo de pan vivirá el hombre, sino de toda palabra que sale de la boca de Dios.» — Mateo 4:4</p>
+    </div>
+
+    <!-- ============ Today's (or selected) video ============ -->
+    <div class="player-card" id="playerCard" style="display:none">
+      <!-- The player. src is set by JavaScript; the server decides
+           whether the bytes come from its disk or Google Drive. -->
+      <video id="player" controls playsinline preload="metadata"></video>
+      <div class="player-meta ui">
+        <span class="today-badge" id="todayBadge">HOY</span>
+        <div>
+          <div class="player-title" id="playerTitle"></div>
+          <div class="player-date" id="playerDate"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shown while loading, or if there are no videos yet -->
+    <div class="state" id="state">Cargando el devocional de hoy…</div>
+
+    <!-- ============ The archive ============ -->
+    <h2 class="archive-heading" id="archiveHeading" style="display:none">Devocionales anteriores</h2>
+    <div class="grid ui" id="grid"></div>
+  </main>
+
+  <footer>
+    Diario Pan · un proyecto de <a href="https://github.com" rel="noopener">código abierto</a> de nuestra iglesia
+    · <a href="/privacidad">Privacidad</a> · <a href="/soporte">Soporte</a>
+  </footer>
+
+  <script>
+    // ----- tiny helpers -----
+    const $ = (id) => document.getElementById(id);
+
+    // "2026-07-04" -> "viernes, 4 de julio de 2026", warm and human.
+    function prettyDate(iso) {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("es", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      });
+    }
+
+    // A greeting that matches the visitor's clock - small touch,
+    // big warmth.
+    (function setGreeting() {
+      const h = new Date().getHours();
+      $("greeting").textContent =
+        h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
+    })();
+
+    let videos = [];        // the published list, newest first
+    let currentId = null;   // which one is in the player right now
+
+    // Put a video in the big player and mark its card as active.
+    // autoplay=false on first load (browsers block autoplay with
+    // sound anyway); true when the user clicks a card.
+    function select(video, autoplay) {
+      currentId = video.id;
+      $("player").src = `/api/videos/${video.id}/stream`;
+      $("playerTitle").textContent = video.title;
+      $("playerDate").textContent = prettyDate(video.publish_date);
+      // The "HOY" badge only makes sense on the newest video.
+      $("todayBadge").style.display = video.id === videos[0].id ? "" : "none";
+      $("playerCard").style.display = "";
+      if (autoplay) {
+        $("player").play().catch(() => {}); // ignore autoplay refusals
+        // On phones, bring the player back into view.
+        $("playerCard").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      // Refresh the highlight on the cards.
+      document.querySelectorAll(".video-card").forEach((el) => {
+        el.classList.toggle("active", Number(el.dataset.id) === currentId);
+      });
+    }
+
+    // Build one clickable card for the archive grid.
+    function makeCard(video) {
+      const btn = document.createElement("button");
+      btn.className = "video-card";
+      btn.dataset.id = video.id;
+      btn.innerHTML = `
+        <span class="play-dot">▶</span>
+        <span>
+          <span class="t">${video.title.replace(/</g, "&lt;")}</span><br/>
+          <span class="d">${prettyDate(video.publish_date)}</span>
+        </span>`;
+      btn.addEventListener("click", () => select(video, true));
+      return btn;
+    }
+
+    // ----- load everything -----
+    fetch("/api/videos")
+      .then((r) => r.json())
+      .then((list) => {
+        videos = list;
+        if (!videos.length) {
+          $("state").textContent =
+            "Aún no hay devocionales publicados. ¡Vuelve pronto! 🍞";
+          return;
+        }
+        $("state").style.display = "none";
+
+        // Today's (newest) video goes straight into the player.
+        select(videos[0], false);
+
+        // Everything else becomes the archive grid. If there is
+        // only one video so far, we simply skip the archive section.
+        const past = videos.slice(1);
+        if (past.length) {
+          $("archiveHeading").style.display = "";
+          past.forEach((v) => $("grid").appendChild(makeCard(v)));
+        }
+      })
+      .catch(() => {
+        $("state").textContent =
+          "No se pudo cargar los devocionales. Intenta de nuevo en un momento.";
+      });
+  </script>
+</body>
+</html>

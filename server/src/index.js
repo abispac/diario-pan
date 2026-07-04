@@ -42,13 +42,15 @@ app.get("/api/admin/check", requireAdmin, (req, res) => res.json({ ok: true }));
 app.use("/api/videos", videosRouter);
 app.use("/api/devices", devicesRouter);
 
-// ---- Pretty URLs for the two pages ----
-app.get("/upload", (req, res) =>
-  res.sendFile(path.join(__dirname, "..", "public", "upload.html"))
-);
-app.get("/descargar", (req, res) =>
-  res.sendFile(path.join(__dirname, "..", "public", "descargar.html"))
-);
+// ---- Pretty URLs for the pages ----
+// (the home page, public/index.html, is served automatically
+//  at "/" by express.static above)
+const page = (name) => (req, res) =>
+  res.sendFile(path.join(__dirname, "..", "public", `${name}.html`));
+app.get("/upload", page("upload"));         // admin: upload the daily video
+app.get("/descargar", page("descargar"));   // public: QR codes for the apps
+app.get("/privacidad", page("privacidad")); // required by Apple & Google
+app.get("/soporte", page("soporte"));       // required by Apple ("Support URL")
 
 // The QR page needs the store links; serve them as a tiny JSON.
 app.get("/api/store-links", (req, res) => res.json(config.storeUrls));
