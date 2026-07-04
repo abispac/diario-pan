@@ -1,7 +1,9 @@
 // ================================================================
-// HomeScreen.js - the main screen: every published devotional,
-// newest first. Tap one to watch it. Gear icon (top right) opens
-// Settings. Pull down to refresh the list.
+// HomeScreen.js - the main screen. Today's devotional sits at the
+// top as a real, playable video (press play right there - no
+// screen change). The older devotionals are listed below it;
+// tapping one of those opens the full-screen player. Gear icon
+// (top right) opens Settings. Pull down to refresh.
 // ================================================================
 
 import React, { useCallback, useContext, useState } from "react";
@@ -13,9 +15,10 @@ import {
   RefreshControl,
   StyleSheet,
 } from "react-native";
+import { Video, ResizeMode } from "expo-av";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../../App";
-import { fetchVideos } from "../api";
+import { fetchVideos, streamUrl } from "../api";
 
 // Turn "2026-07-04" into "viernes, 4 de julio" - warm and human,
 // the way you'd say it out loud.
@@ -75,9 +78,12 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ---------- The list of devotionals ---------- */}
+      {/* ---------- Today's video + the list of older ones ----------
+          The newest video (videos[0]) is rendered as a playable
+          card in the list header, so it plays RIGHT HERE on the
+          main screen. Only the older devotionals are list rows. */}
       <FlatList
-        data={videos}
+        data={videos.slice(1)}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={
@@ -85,19 +91,59 @@ export default function HomeScreen({ navigation }) {
         }
         // Friendly empty state instead of a blank void.
         ListEmptyComponent={
-          loaded ? (
+          loaded && videos.length === 0 ? (
             <Text style={[styles.empty, { color: theme.textMuted }]}>
               Aún no hay devocionales.{"\n"}Desliza hacia abajo para actualizar.
             </Text>
           ) : null
         }
-        renderItem={({ item, index }) => (
+        ListHeaderComponent={
+          videos.length > 0 ? (
+            <View>
+              {/* ----- Today's devotional, playable in place ----- */}
+              <View style={[styles.heroCard, { backgroundColor: theme.card }]}>
+                <Video
+                  // key forces a fresh player when the day's video
+                  // changes (e.g. after a pull-to-refresh at midnight)
+                  key={videos[0].id}
+                  source={{ uri: streamUrl(videos[0].id) }}
+                  style={styles.heroVideo}
+                  resizeMode={ResizeMode.CONTAIN}
+                  useNativeControls // play/pause/seek right here
+                  // NOT shouldPlay: it waits politely until the
+                  // user presses play.
+                />
+                <View style={styles.heroMeta}>
+                  <View style={[styles.todayTag, { backgroundColor: theme.accent }]}>
+                    <Text style={styles.todayText}>HOY</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
+                      {videos[0].title}
+                    </Text>
+                    <Text style={[styles.cardDate, { color: theme.textMuted }]}>
+                      {prettyDate(videos[0].publish_date)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Section label for the older devotionals */}
+              {videos.length > 1 && (
+                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+                  Devocionales anteriores
+                </Text>
+              )}
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.card, { backgroundColor: theme.card }]}
             onPress={() => navigation.navigate("Player", { videoId: item.id, title: item.title })}
             activeOpacity={0.7}
           >
-            {/* Play badge */}
+            {/* Play badge - these older ones open the full player */}
             <View style={[styles.playBadge, { backgroundColor: theme.accent }]}>
               <Text style={{ color: "#fff", fontSize: 18 }}>▶</Text>
             </View>
@@ -109,13 +155,6 @@ export default function HomeScreen({ navigation }) {
                 {prettyDate(item.publish_date)}
               </Text>
             </View>
-            {/* "HOY" tag on the newest video so today's devotional
-                jumps out visually. */}
-            {index === 0 && (
-              <View style={[styles.todayTag, { backgroundColor: theme.accent }]}>
-                <Text style={styles.todayText}>HOY</Text>
-              </View>
-            )}
           </TouchableOpacity>
         )}
       />
@@ -136,6 +175,17 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: "800", flex: 1 },
   gear: { padding: 6 },
   empty: { textAlign: "center", marginTop: 80, fontSize: 15, lineHeight: 24 },
+  heroCard: {
+    borderRadius: 16, overflow: "hidden", marginBottom: 8,
+    shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 }, elevation: 3,
+  },
+  heroVideo: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
+  heroMeta: { flexDirection: "row", alignItems: "center", padding: 14 },
+  sectionLabel: {
+    fontSize: 13, fontWeight: "700", textTransform: "uppercase",
+    letterSpacing: 0.5, marginTop: 16, marginBottom: 10, marginLeft: 4,
+  },
   card: {
     flexDirection: "row", alignItems: "center",
     borderRadius: 14, padding: 14, marginBottom: 12,
