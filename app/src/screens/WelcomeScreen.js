@@ -18,12 +18,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Switch,
 } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ThemeContext } from "../../App";
 import {
   setNotificationTime,
+  setAlarmPreference,
   markWelcomeCompleted,
 } from "../notifications";
 import { welcomeVideoUrl } from "../api";
@@ -45,12 +47,17 @@ export default function WelcomeScreen({ navigation }) {
   // it inline permanently. This flag drives the Android dialog.
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Alarm mode: off by default; the user can flip it here or later
+  // in Ajustes.
+  const [alarmOn, setAlarmOn] = useState(false);
 
   // Called when the user confirms their time. Does ALL the setup:
-  // permission, local daily notification, server registration.
+  // alarm preference, permission, local daily notification, server
+  // registration.
   const confirmTime = async () => {
     setSaving(true);
     try {
+      await setAlarmPreference(alarmOn); // must be saved BEFORE scheduling
       await setNotificationTime(time.getHours(), time.getMinutes());
       await markWelcomeCompleted();
     } finally {
@@ -132,6 +139,18 @@ export default function WelcomeScreen({ navigation }) {
             />
           )}
 
+          {/* Alarm mode: notification vs. wake-up-bell experience */}
+          <View style={styles.alarmRow}>
+            <Text style={[styles.alarmLabel, { color: theme.textMuted }]}>
+              ⏰ Modo alarma (campana fuerte)
+            </Text>
+            <Switch
+              value={alarmOn}
+              onValueChange={setAlarmOn}
+              trackColor={{ true: theme.accent }}
+            />
+          </View>
+
           <TouchableOpacity
             style={[styles.cta, { backgroundColor: theme.accent }]}
             onPress={confirmTime}
@@ -165,6 +184,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40, marginBottom: 12,
   },
   timeText: { fontSize: 32, fontWeight: "700" },
+  alarmRow: {
+    flexDirection: "row", alignItems: "center", marginTop: 16, gap: 10,
+  },
+  alarmLabel: { fontSize: 14, fontWeight: "600" },
   cta: {
     marginTop: 28, paddingVertical: 16, paddingHorizontal: 48,
     borderRadius: 14,

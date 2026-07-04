@@ -17,10 +17,15 @@ import {
   ScrollView,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { TextInput } from "react-native";
+import { TextInput, Switch } from "react-native";
 import { ThemeContext } from "../../App";
 import { PALETTES } from "../theme";
-import { getNotificationTime, setNotificationTime } from "../notifications";
+import {
+  getNotificationTime,
+  setNotificationTime,
+  getAlarmMode,
+  setAlarmMode,
+} from "../notifications";
 import { getServerUrl, setServerUrl, DEFAULT_SERVER_URL } from "../api";
 
 export default function SettingsScreen({ navigation }) {
@@ -29,16 +34,27 @@ export default function SettingsScreen({ navigation }) {
   const [time, setTime] = useState(null); // null until loaded
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [alarmOn, setAlarmOn] = useState(false);
 
-  // Load the currently saved notification time when the screen opens.
+  // Load the saved notification time + alarm mode when the screen opens.
   useEffect(() => {
     (async () => {
       const { hour, minute } = await getNotificationTime();
       const d = new Date();
       d.setHours(hour, minute, 0, 0);
       setTime(d);
+      setAlarmOn(await getAlarmMode());
     })();
   }, []);
+
+  // Flip alarm mode: reschedules the daily reminder with the bell
+  // sound and maximum urgency (or back to a normal notification).
+  const toggleAlarm = async (value) => {
+    setAlarmOn(value);
+    await setAlarmMode(value);
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 2000);
+  };
 
   // Apply a new time: reschedules the local notification AND
   // updates the server, all inside setNotificationTime().
@@ -105,6 +121,24 @@ export default function SettingsScreen({ navigation }) {
             }}
           />
         )}
+
+        {/* ---------- Alarm mode toggle ---------- */}
+        <View style={styles.alarmRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 2 }]}>
+              ⏰ Modo alarma
+            </Text>
+            <Text style={[styles.cardHint, { color: theme.textMuted, marginBottom: 0 }]}>
+              Suena como despertador: campana fuerte e insistente en vez de
+              una notificación normal.
+            </Text>
+          </View>
+          <Switch
+            value={alarmOn}
+            onValueChange={toggleAlarm}
+            trackColor={{ true: theme.accent }}
+          />
+        </View>
       </View>
 
       {/* ---------- Setting 2: the color picker ---------- */}
@@ -211,6 +245,10 @@ const styles = StyleSheet.create({
   swatchName: { marginTop: 6, fontSize: 12, fontWeight: "600" },
   urlInput: {
     borderWidth: 2, borderRadius: 10, padding: 12, fontSize: 14,
+  },
+  alarmRow: {
+    flexDirection: "row", alignItems: "center", marginTop: 18,
+    borderTopWidth: 1, borderTopColor: "#f0e8dc", paddingTop: 16,
   },
   about: { textAlign: "center", fontSize: 12, marginTop: 12 },
 });

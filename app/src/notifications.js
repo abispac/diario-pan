@@ -62,13 +62,24 @@ export async function getPushToken() {
   }
   if (status !== "granted") return null;
 
-  // Android additionally needs a "channel" - this defines the
-  // sound/importance of our daily reminder.
+  // Android additionally needs "channels" - they define the
+  // sound/importance of our reminders. Two channels:
+  //   devocional        -> normal notification, default sound
+  //   devocional-alarma -> alarm mode: church bell, max priority,
+  //                        plays on the ALARM audio stream (so it
+  //                        uses the alarm volume, not media volume)
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("devocional", {
       name: "Devocional diario",
       importance: Notifications.AndroidImportance.HIGH,
       sound: "default",
+    });
+    await Notifications.setNotificationChannelAsync("devocional-alarma", {
+      name: "Devocional (modo alarma)",
+      importance: Notifications.AndroidImportance.MAX,
+      sound: "campana.wav", // bundled bell sound (assets/campana.wav)
+      bypassDnd: true, // ring through Do-Not-Disturb where allowed
+      audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM },
     });
   }
 
@@ -95,20 +106,30 @@ export async function setNotificationTime(hour, minute) {
     [KEY_MINUTE, String(minute)],
   ]);
 
+  // Alarm mode changes the sound and urgency of the reminder.
+  const alarm = await getAlarmMode();
+
   // 2. Replace any previous local schedule with the new time.
   await Notifications.cancelAllScheduledNotificationsAsync();
   await Notifications.scheduleNotificationAsync({
     content: {
       title: "🍞 Diario Pan",
-      body: "Tu devocional de hoy te está esperando.",
-      sound: "default",
+      body: alarm
+        ? "⏰ ¡Es la hora de tu devocional!"
+        : "Tu devocional de hoy te está esperando.",
+      // Alarm mode: the church-bell sound (11s of bell tolls).
+      // Normal mode: the phone's standard notification sound.
+      sound: alarm ? "campana.wav" : "default",
+      // iOS: "timeSensitive" lets the alert break through Focus
+      // modes (requires the entitlement set in app.json).
+      interruptionLevel: alarm ? "timeSensitive" : undefined,
     },
     trigger: {
       // Repeats every day at hour:minute, phone-local time.
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
       minute,
-      channelId: "devocional",
+      channelId: alarm ? "devocional-alarma" : "devocional",
     },
   });
 
@@ -124,6 +145,30 @@ export async function setNotificationTime(hour, minute) {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
   }
+}
+
+// ----------------------------------------------------------------
+// Alarm mode ("⏰ Modo alarma"): louder, more insistent reminder.
+// The preference is stored on the phone; changing it re-schedules
+// the daily notification with the right sound/urgency.
+// ----------------------------------------------------------------
+const KEY_ALARM = "dp_alarm_mode";
+
+export async function getAlarmMode() {
+  return (await AsyncStorage.getItem(KEY_ALARM)) === "yes";
+}
+
+// Save the preference WITHOUT rescheduling (used by the welcome
+// flow, which calls setNotificationTime right after anyway).
+export async function setAlarmPreference(enabled) {
+  await AsyncStorage.setItem(KEY_ALARM, enabled ? "yes" : "no");
+}
+
+// Save the preference AND reschedule (used by the Settings toggle).
+export async function setAlarmMode(enabled) {
+  await setAlarmPreference(enabled);
+  const { hour, minute } = await getNotificationTime();
+  await setNotificationTime(hour, minute);
 }
 
 // Read the saved time (defaults to 8:00 for brand-new installs).
