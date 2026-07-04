@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------
+# Things we NEVER want in the public repository.
+# This project is open source, so it is extra important that
+# secrets (passwords, Google credentials) stay out of git.
+# ---------------------------------------------------------------
+
+# Dependency folders - anyone can rebuild these with `npm install`
+node_modules/
+
+# Environment files - these hold the admin password and the
+# Google Drive credentials. NEVER commit them.
+.env
+*.env
+!.env.example
+
+# The local database file created by the server at runtime.
+# Each deployment has its own; it does not belong in git.
+server/data/
+*.sqlite
+*.sqlite3
+
+# Expo / React Native build artifacts
+app/.expo/
+app/dist/
+app/web-build/
+*.apk
+*.aab
+*.ipa
+
+# Editor and OS clutter
+.DS_Store
+.vscode/
+.idea/
+
+# Log files
+*.log

@@ -1,0 +1,26 @@
+{
+  "name": "diario-pan-server",
+  "version": "1.0.0",
+  "description": "Backend for Diario Pan: admin upload page, Google Drive storage, video API and push notifications. Ad-free daily devotional videos.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "get-google-token": "node scripts/get-google-token.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "expo-server-sdk": "^3.13.0",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

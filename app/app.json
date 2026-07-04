@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Diario Pan",
+    "slug": "diario-pan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5ede3"
+    },
+    "ios": {
+      "bundleIdentifier": "com.diariopan.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
+    },
+    "android": {
+      "package": "com.diariopan.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#f5ede3"
+      },
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "SCHEDULE_EXACT_ALARM"]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#7c4a1e"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE-WITH-YOUR-EAS-PROJECT-ID"
+      }
+    }
+  }
+}

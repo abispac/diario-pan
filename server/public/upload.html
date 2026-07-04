@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<!-- ==============================================================
+  upload.html - the admin page at diariopan.com/upload
+  Built for ONE person with ONE job: upload today's devotional.
+  Login once, then it's just: pick file, pick date, press button.
+  Everything is in Spanish because that's who uses it.
+=============================================================== -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diario Pan — Subir video</title>
+  <style>
+    /* ------- Branding: swap these three variables when the real
+       church colors arrive. Everything on the page uses them. ---- */
+    :root {
+      --brand: #7c4a1e;        /* warm bread-brown placeholder */
+      --brand-light: #f5ede3;  /* soft background */
+      --brand-dark: #4e2d10;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--brand-light);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: #fff; border-radius: 16px; padding: 32px;
+      width: 100%; max-width: 460px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+    /* Placeholder logo: a simple bread emoji in a circle. Replace
+       with <img src="logo.png"> when the church logo is ready. */
+    .logo {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--brand); color: #fff; font-size: 36px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    h1 { text-align: center; color: var(--brand-dark); font-size: 22px; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 24px; }
+    label { display: block; font-weight: 600; color: var(--brand-dark); margin: 16px 0 6px; font-size: 14px; }
+    input[type="password"], input[type="text"], input[type="date"] {
+      width: 100%; padding: 12px; border: 2px solid #e5ddd2;
+      border-radius: 10px; font-size: 16px;
+    }
+    input:focus { outline: none; border-color: var(--brand); }
+    /* Big friendly file drop zone */
+    .dropzone {
+      border: 2px dashed var(--brand); border-radius: 12px;
+      padding: 28px; text-align: center; color: var(--brand-dark);
+      cursor: pointer; background: var(--brand-light);
+      transition: background .15s;
+    }
+    .dropzone:hover, .dropzone.dragover { background: #ede0cf; }
+    .dropzone input { display: none; }
+    button {
+      width: 100%; margin-top: 24px; padding: 14px;
+      background: var(--brand); color: #fff; border: none;
+      border-radius: 10px; font-size: 17px; font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: var(--brand-dark); }
+    button:disabled { opacity: .5; cursor: wait; }
+    .msg { margin-top: 16px; padding: 12px; border-radius: 10px; font-size: 14px; display: none; }
+    .msg.ok   { display: block; background: #e6f4e6; color: #1e6b1e; }
+    .msg.err  { display: block; background: #fbe5e5; color: #a12020; }
+    .msg.warn { display: block; background: #fdf3dc; color: #8a6100; }
+    /* Progress bar shown while the video travels to the server */
+    .progress { margin-top: 16px; height: 10px; border-radius: 5px; background: #eee; overflow: hidden; display: none; }
+    .progress .bar { height: 100%; width: 0%; background: var(--brand); transition: width .2s; }
+    .hidden { display: none !important; }
+    .logout { text-align: center; margin-top: 16px; }
+    .logout a { color: #aaa; font-size: 13px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🍞</div>
+    <h1>Diario Pan</h1>
+    <p class="subtitle">Panel de subida del devocional</p>
+
+    <!-- ============ STEP 1: login (shown only if needed) ============ -->
+    <div id="loginView">
+      <label for="password">Contraseña de administrador</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+      <button id="loginBtn">Entrar</button>
+      <div id="loginMsg" class="msg"></div>
+    </div>
+
+    <!-- ============ STEP 2: the upload form ============ -->
+    <div id="uploadView" class="hidden">
+      <label>Video del devocional</label>
+      <!-- Click or drag the file here -->
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file" accept="video/*" />
+        <span id="dropText">📹 Toca aquí o arrastra el video</span>
+      </div>
+
+      <label for="date">Fecha en que debe aparecer</label>
+      <!-- The date picker. Defaults to today; pick tomorrow if the
+           video is for tomorrow. It will NOT show in the app before
+           this date. -->
+      <input type="date" id="date" />
+
+      <label for="title">Título (opcional)</label>
+      <input type="text" id="title" placeholder="Se genera automáticamente si lo dejas vacío" />
+
+      <button id="uploadBtn">Subir video</button>
+      <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+      <div id="uploadMsg" class="msg"></div>
+
+      <div class="logout"><a href="#" id="logoutLink">Cerrar sesión</a></div>
+    </div>
+  </div>
+
+  <script>
+    // ----- tiny helpers -----
+    const $ = (id) => document.getElementById(id);
+    const show = (el, cls, text) => { el.className = "msg " + cls; el.textContent = text; };
+
+    // On page load: do we already have a valid admin session?
+    // If yes, skip the login form entirely.
+    fetch("/api/admin/check").then((r) => {
+      if (r.ok) { $("loginView").classList.add("hidden"); $("uploadView").classList.remove("hidden"); }
+    });
+
+    // Default the date picker to today.
+    $("date").value = new Date().toISOString().slice(0, 10);
+
+    // ----- login -----
+    $("loginBtn").addEventListener("click", async () => {
+      const r = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: $("password").value }),
+      });
+      if (r.ok) {
+        $("loginView").classList.add("hidden");
+        $("uploadView").classList.remove("hidden");
+      } else {
+        show($("loginMsg"), "err", "Contraseña incorrecta. Intenta de nuevo.");
+      }
+    });
+    // Enter key submits the login too.
+    $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+
+    // ----- logout -----
+    $("logoutLink").addEventListener("click", async (e) => {
+      e.preventDefault();
+      await fetch("/api/admin/logout", { method: "POST" });
+      location.reload();
+    });
+
+    // ----- dropzone niceties (click + drag & drop) -----
+    const dz = $("dropzone"), fileInput = $("file");
+    dz.addEventListener("click", () => fileInput.click());
+    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault(); dz.classList.remove("dragover");
+      if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; showFileName(); }
+    });
+    fileInput.addEventListener("change", showFileName);
+    function showFileName() {
+      if (fileInput.files[0]) $("dropText").textContent = "✅ " + fileInput.files[0].name;
+    }
+
+    // ----- the upload itself -----
+    // We use XMLHttpRequest instead of fetch for ONE reason: real
+    // upload progress events, so the uploader sees the bar move.
+    $("uploadBtn").addEventListener("click", () => {
+      const file = fileInput.files[0];
+      if (!file) return show($("uploadMsg"), "err", "Primero elige un video.");
+
+      const form = new FormData();
+      form.append("video", file);
+      form.append("publishDate", $("date").value);
+      form.append("title", $("title").value);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/videos");
+
+      $("uploadBtn").disabled = true;
+      $("progress").style.display = "block";
+      $("uploadMsg").className = "msg";
+
+      // Move the progress bar as bytes leave the browser.
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) $("bar").style.width = Math.round((e.loaded / e.total) * 100) + "%";
+      };
+
+      xhr.onload = () => {
+        $("uploadBtn").disabled = false;
+        $("progress").style.display = "none";
+        $("bar").style.width = "0%";
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status === 200 && data.ok) {
+            // Success! Mention the Drive warning if there was one.
+            if (data.driveWarning) {
+              show($("uploadMsg"), "warn", "✅ Video subido. ⚠️ " + data.driveWarning);
+            } else {
+              show($("uploadMsg"), "ok",
+                `✅ ¡Listo! "${data.title}" aparecerá en la app el ${data.publishDate}.`);
+            }
+            // Reset the form for tomorrow's video.
+            fileInput.value = ""; $("title").value = "";
+            $("dropText").textContent = "📹 Toca aquí o arrastra el video";
+          } else {
+            show($("uploadMsg"), "err", data.error || "Error al subir el video.");
+          }
+        } catch {
+          show($("uploadMsg"), "err", "Error inesperado del servidor.");
+        }
+      };
+      xhr.onerror = () => {
+        $("uploadBtn").disabled = false;
+        $("progress").style.display = "none";
+        show($("uploadMsg"), "err", "No se pudo conectar con el servidor.");
+      };
+
+      xhr.send(form);
+    });
+  </script>
+</body>
+</html>

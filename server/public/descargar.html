@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!-- ==============================================================
+  descargar.html - the public download page (diariopan.com/descargar)
+  Shows two QR codes: one for the App Store, one for Google Play.
+  Print it, put it on the church bulletin board, share it in the
+  WhatsApp group - people scan and install.
+
+  The QR codes are drawn in the browser (qrcodejs from a CDN), fed
+  by the store links the server exposes at /api/store-links, so
+  updating the links in .env updates the QRs automatically.
+=============================================================== -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diario Pan — Descarga la app</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --brand: #7c4a1e;       /* placeholder brand color, swap later */
+      --brand-light: #f5ede3;
+      --brand-dark: #4e2d10;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--brand-light); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 40px 16px; text-align: center;
+    }
+    .logo {
+      width: 88px; height: 88px; border-radius: 50%;
+      background: var(--brand); color: #fff; font-size: 44px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    h1 { color: var(--brand-dark); font-size: 32px; }
+    .tagline { color: #7a6a58; font-size: 17px; margin: 8px 0 36px; max-width: 420px; }
+    .qrs { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; }
+    .qr-card {
+      background: #fff; border-radius: 16px; padding: 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+    .qr-card h2 { font-size: 18px; color: var(--brand-dark); margin-bottom: 14px; }
+    .qr-box { width: 180px; height: 180px; margin: 0 auto; }
+    .qr-card a {
+      display: inline-block; margin-top: 14px; color: var(--brand);
+      font-weight: 600; text-decoration: none; font-size: 14px;
+    }
+    footer { margin-top: 40px; color: #b0a290; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <!-- Placeholder logo - replace with the church logo image -->
+  <div class="logo">🍞</div>
+  <h1>Diario Pan</h1>
+  <p class="tagline">
+    Tu devocional diario, sin anuncios y a la hora que tú elijas.
+    Escanea el código con la cámara de tu teléfono:
+  </p>
+
+  <div class="qrs">
+    <div class="qr-card">
+      <h2>📱 iPhone</h2>
+      <div class="qr-box" id="qr-ios"></div>
+      <a id="link-ios" href="#">Abrir en App Store</a>
+    </div>
+    <div class="qr-card">
+      <h2>🤖 Android</h2>
+      <div class="qr-box" id="qr-android"></div>
+      <a id="link-android" href="#">Abrir en Google Play</a>
+    </div>
+  </div>
+
+  <footer>Diario Pan · un proyecto de código abierto de nuestra iglesia</footer>
+
+  <script>
+    // Ask the server for the current store links and draw the QRs.
+    fetch("/api/store-links")
+      .then((r) => r.json())
+      .then(({ ios, android }) => {
+        new QRCode(document.getElementById("qr-ios"), { text: ios, width: 180, height: 180 });
+        new QRCode(document.getElementById("qr-android"), { text: android, width: 180, height: 180 });
+        document.getElementById("link-ios").href = ios;
+        document.getElementById("link-android").href = android;
+      });
+  </script>
+</body>
+</html>
