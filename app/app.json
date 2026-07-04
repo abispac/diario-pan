@@ -16,7 +16,6 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
         "NSAppTransportSecurity": {
@@ -53,7 +52,8 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withFmtFix.js"
     ],
     "extra": {
       "eas": {
