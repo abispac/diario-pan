@@ -57,9 +57,16 @@ export default function WelcomeScreen({ navigation }) {
   const confirmTime = async () => {
     setSaving(true);
     try {
+      // Mark the welcome as done FIRST. Even if scheduling below
+      // fails for any reason (permission denied, flaky network),
+      // the user must never be asked to set up again - they can
+      // always adjust the time later in Ajustes.
+      await markWelcomeCompleted();
       await setAlarmPreference(alarmOn); // must be saved BEFORE scheduling
       await setNotificationTime(time.getHours(), time.getMinutes());
-      await markWelcomeCompleted();
+    } catch (err) {
+      // Log and move on - Home works fine without notifications.
+      console.warn("Welcome setup issue:", err?.message);
     } finally {
       setSaving(false);
       // Reset navigation so "back" can't return to the welcome.
