@@ -6,7 +6,8 @@
 //   GET  /api/videos/:id/stream -> watch a video (local-or-Drive)
 //
 // Admin endpoints (need the admin session cookie from /upload):
-//   POST   /api/videos          -> upload a new video
+//   POST   /api/videos          -> upload a new video (file)
+//   POST   /api/videos/from-url -> import from a pasted link (Facebook)
 //   GET    /api/videos/all      -> every video incl. scheduled ones
 //   DELETE /api/videos/:id      -> remove a video everywhere
 // ================================================================
@@ -15,13 +16,14 @@ import { Router } from "express";
 import multer from "multer";
 import fs from "node:fs";
 import os from "node:os";
-import {
+import db, {
   insertVideo,
   listPublishedVideos,
   listAllVideos,
   getVideo,
   deleteVideo,
 } from "../db.js";
+import { downloadFromUrl } from "../fetcher.js";
 import { uploadVideo, streamVideo, deleteDriveFile } from "../drive.js";
 import {
   saveLocalCopy,
@@ -99,78 +101,125 @@ router.get("/:id/stream", async (req, res) => {
 });
 
 // ----------------------------------------------------------------
-// POST /api/videos - the upload itself (admin only).
-//
-// The uploader's whole job: pick a file, pick a date, optional
-// title, press the button. From here:
+// The shared pipeline: given a video file sitting in a temp path,
+// make it a real Diario Pan video.
 //   1. Save the record in the catalog (gives us the video id)
 //   2. Copy the file to local storage        (backup copy #1)
 //   3. Upload the same file to Google Drive  (backup copy #2)
-//   4. Clean up the temp file
 // If Drive fails we keep the local copy and still succeed - the
-// admin sees a warning and can retry Drive later. If BOTH fail,
-// the upload fails cleanly.
+// admin sees a warning and can fix Drive later.
+// Used by BOTH the manual upload and the Facebook-link import.
+// ----------------------------------------------------------------
+async function catalogVideo(tempPath, { title, publishDate, mimeType }) {
+  // 1. Catalog entry first, so we have an id to name files with.
+  const videoId = insertVideo({
+    title,
+    driveFileId: "pending", // patched below once Drive answers
+    publishDate,
+    mimeType,
+    sizeBytes: fs.statSync(tempPath).size,
+  });
+
+  // 2. Local copy on this server's disk.
+  await saveLocalCopy(tempPath, videoId, mimeType);
+
+  // 3. Google Drive copy. Named after the publish date so the
+  //    Drive folder reads like a diary.
+  let driveWarning = null;
+  try {
+    const { fileId } = await uploadVideo(
+      fs.createReadStream(tempPath),
+      `diario-pan-${publishDate}.mp4`,
+      mimeType
+    );
+    // Patch the real Drive id into the catalog.
+    db.prepare(`UPDATE videos SET drive_file_id = ? WHERE id = ?`).run(
+      fileId,
+      videoId
+    );
+  } catch (err) {
+    // Drive said no (quota, network, expired credentials...).
+    // The local copy is safe, so the video WILL play.
+    console.error("[videos] Drive upload failed:", err.message);
+    driveWarning =
+      "El video se guardó en el servidor, pero la copia en Google Drive falló. " +
+      "Revisa las credenciales de Google.";
+  }
+
+  return { videoId, driveWarning };
+}
+
+// Shared helpers for both intake routes: default the date to
+// today, and build the friendly default title ("Diario Pan – dd/mm/yyyy").
+function resolveDateAndTitle(body) {
+  const publishDate =
+    (body?.publishDate || "").trim() || new Date().toISOString().slice(0, 10);
+  const [y, m, d] = publishDate.split("-");
+  const title = (body?.title || "").trim() || `Diario Pan – ${d}/${m}/${y}`;
+  return { publishDate, title };
+}
+
+// ----------------------------------------------------------------
+// POST /api/videos - manual file upload (admin only).
 // ----------------------------------------------------------------
 router.post("/", requireAdmin, upload.single("video"), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: "Falta el archivo de video" });
 
-  // The date the video should appear in the app. Defaults to
-  // today if the uploader leaves the date picker alone.
-  const publishDate =
-    req.body.publishDate || new Date().toISOString().slice(0, 10);
-
-  // A friendly default title in Spanish, e.g. "Diario Pan – 04/07/2026".
-  const [y, m, d] = publishDate.split("-");
-  const title = (req.body.title || "").trim() || `Diario Pan – ${d}/${m}/${y}`;
-
+  const { publishDate, title } = resolveDateAndTitle(req.body);
   const mimeType = file.mimetype || "video/mp4";
 
   try {
-    // 1. Catalog entry first, so we have an id to name files with.
-    const videoId = insertVideo({
+    const { videoId, driveWarning } = await catalogVideo(file.path, {
       title,
-      driveFileId: "pending", // patched below once Drive answers
       publishDate,
       mimeType,
-      sizeBytes: file.size,
     });
-
-    // 2. Local (Namecheap) copy.
-    await saveLocalCopy(file.path, videoId, mimeType);
-
-    // 3. Google Drive copy. Named after the publish date so the
-    //    Drive folder reads like a diary.
-    let driveWarning = null;
-    try {
-      const { fileId } = await uploadVideo(
-        fs.createReadStream(file.path),
-        `diario-pan-${publishDate}.mp4`,
-        mimeType
-      );
-      // Patch the real Drive id into the catalog.
-      const { default: db } = await import("../db.js");
-      db.prepare(`UPDATE videos SET drive_file_id = ? WHERE id = ?`).run(
-        fileId,
-        videoId
-      );
-    } catch (err) {
-      // Drive said no (quota, network, expired credentials...).
-      // The local copy is safe, so the video WILL play. Tell the
-      // admin so they can fix Drive and re-upload if they want.
-      console.error("[videos] Drive upload failed:", err.message);
-      driveWarning =
-        "El video se guardó en el servidor, pero la copia en Google Drive falló. " +
-        "Revisa las credenciales de Google.";
-    }
-
     res.json({ ok: true, videoId, title, publishDate, driveWarning });
   } catch (err) {
     console.error("[videos] Upload failed completely:", err.message);
     res.status(500).json({ error: "No se pudo guardar el video" });
   } finally {
-    // 4. Always remove multer's temp file, success or not.
+    // Always remove multer's temp file, success or not.
     fs.unlink(file.path, () => {});
+  }
+});
+
+// ----------------------------------------------------------------
+// POST /api/videos/from-url - import from a pasted link (admin only).
+//
+// The uploader's dream workflow: post to Facebook as always, then
+// paste the link here. yt-dlp downloads the video to a temp file
+// and it flows through the exact same pipeline as a manual upload.
+// Body: { url, publishDate?, title? }
+// ----------------------------------------------------------------
+router.post("/from-url", requireAdmin, async (req, res) => {
+  const url = String(req.body?.url || "").trim();
+  // Basic sanity: must look like a web link. yt-dlp does the rest.
+  if (!/^https?:\/\/.+/i.test(url)) {
+    return res.status(400).json({ error: "Pega un enlace válido (https://...)" });
+  }
+
+  const { publishDate, title } = resolveDateAndTitle(req.body);
+
+  let tempPath = null;
+  try {
+    // Download from Facebook (or wherever the link points).
+    // Takes anywhere from seconds to a couple of minutes.
+    tempPath = await downloadFromUrl(url);
+
+    const { videoId, driveWarning } = await catalogVideo(tempPath, {
+      title,
+      publishDate,
+      mimeType: "video/mp4", // yt-dlp always hands us an mp4
+    });
+    res.json({ ok: true, videoId, title, publishDate, driveWarning });
+  } catch (err) {
+    console.error("[videos] Link import failed:", err.message);
+    // fetcher.js errors are already friendly Spanish - pass along.
+    res.status(500).json({ error: err.message || "No se pudo importar el video" });
+  } finally {
+    if (tempPath) fs.unlink(tempPath, () => {});
   }
 });
 

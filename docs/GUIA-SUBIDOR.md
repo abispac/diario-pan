@@ -9,8 +9,13 @@ toma menos de un minuto.*
 2. La primera vez te pedirá la **contraseña de administrador**
    (te la da el administrador del sitio). Después de eso, el navegador
    la recuerda por 30 días.
-3. Toca el recuadro **"📹 Toca aquí o arrastra el video"** y elige el
-   video del día.
+3. Elige UNA de las dos formas de subir el video:
+   - **Archivo:** toca el recuadro **"📹 Toca aquí o arrastra el video"**
+     y elige el video del día, **o**
+   - **Enlace de Facebook (más fácil):** si ya publicaste el video en
+     Facebook, copia el enlace de esa publicación y pégalo en el campo
+     **"Pega el enlace de Facebook"**. El servidor descarga el video
+     solo — tú no tienes que descargar nada. (El video debe ser público.)
 4. Revisa la **fecha**:
    - Si el video es para **hoy**, no toques nada (ya viene puesta la
      fecha de hoy).

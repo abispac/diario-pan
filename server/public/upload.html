@@ -56,6 +56,14 @@
     }
     .dropzone:hover, .dropzone.dragover { background: #ede0cf; }
     .dropzone input { display: none; }
+    .divider {
+      text-align: center; color: #b9a888;
+      margin: 18px 0 2px; font-size: 13px; letter-spacing: 1px;
+    }
+    input[type="url"] {
+      width: 100%; padding: 12px; border: 2px solid #e5ddd2;
+      border-radius: 10px; font-size: 15px;
+    }
     button {
       width: 100%; margin-top: 24px; padding: 14px;
       background: var(--brand); color: #fff; border: none;
@@ -98,6 +106,14 @@
         <input type="file" id="file" accept="video/*" />
         <span id="dropText">📹 Toca aquí o arrastra el video</span>
       </div>
+
+      <!-- ======= OR: paste the Facebook link instead =======
+           If a link is pasted, it takes priority over the file.
+           The server downloads the video itself (yt-dlp). -->
+      <div class="divider">— o —</div>
+      <label for="fbUrl">Pega el enlace de Facebook</label>
+      <input type="url" id="fbUrl"
+             placeholder="https://www.facebook.com/..." autocomplete="off" />
 
       <label for="date">Fecha en que debe aparecer</label>
       <!-- The date picker. Defaults to today; pick tomorrow if the
@@ -168,12 +184,52 @@
       if (fileInput.files[0]) $("dropText").textContent = "✅ " + fileInput.files[0].name;
     }
 
+    // ----- import from a pasted Facebook link -----
+    // The server downloads the video itself; we just wait. There's
+    // no progress bar for this one (the download happens server-
+    // side), so we show a patient message instead.
+    async function importFromLink(url) {
+      $("uploadBtn").disabled = true;
+      show($("uploadMsg"), "warn", "⏳ Descargando el video del enlace... esto puede tardar un minuto.");
+      try {
+        const r = await fetch("/api/videos/from-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            publishDate: $("date").value,
+            title: $("title").value,
+          }),
+        });
+        const data = await r.json();
+        if (r.ok && data.ok) {
+          if (data.driveWarning) {
+            show($("uploadMsg"), "warn", "✅ Video importado. ⚠️ " + data.driveWarning);
+          } else {
+            show($("uploadMsg"), "ok",
+              `✅ ¡Listo! "${data.title}" aparecerá en la app el ${data.publishDate}.`);
+          }
+          $("fbUrl").value = ""; $("title").value = "";
+        } else {
+          show($("uploadMsg"), "err", data.error || "No se pudo importar el video.");
+        }
+      } catch {
+        show($("uploadMsg"), "err", "No se pudo conectar con el servidor.");
+      } finally {
+        $("uploadBtn").disabled = false;
+      }
+    }
+
     // ----- the upload itself -----
     // We use XMLHttpRequest instead of fetch for ONE reason: real
     // upload progress events, so the uploader sees the bar move.
     $("uploadBtn").addEventListener("click", () => {
+      // A pasted link takes priority over a chosen file.
+      const fbUrl = $("fbUrl").value.trim();
+      if (fbUrl) return importFromLink(fbUrl);
+
       const file = fileInput.files[0];
-      if (!file) return show($("uploadMsg"), "err", "Primero elige un video.");
+      if (!file) return show($("uploadMsg"), "err", "Elige un video o pega un enlace de Facebook.");
 
       const form = new FormData();
       form.append("video", file);

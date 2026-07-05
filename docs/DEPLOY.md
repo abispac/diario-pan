@@ -20,6 +20,11 @@ well. Two good options:
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs git
 
+# 1b. Install yt-dlp + ffmpeg (for the "paste a Facebook link" feature)
+sudo apt-get install -y ffmpeg
+sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
+
 # 2. Get the code
 git clone https://github.com/YOUR-USER/diario-pan.git
 cd diario-pan/server
