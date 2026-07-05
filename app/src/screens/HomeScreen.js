@@ -37,6 +37,10 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  // Handle to today's inline video player, so we can pause it
+  // when the user leaves this screen.
+  const heroRef = React.useRef(null);
+
   const load = useCallback(async () => {
     setVideos(await fetchVideos());
     setLoaded(true);
@@ -44,10 +48,15 @@ export default function HomeScreen({ navigation }) {
 
   // Reload every time the screen comes into focus - so returning
   // from the player after midnight, or opening from a
-  // notification, always shows the freshest list.
+  // notification, always shows the freshest list. The cleanup
+  // (run when the screen LOSES focus) pauses today's video, so it
+  // never keeps talking underneath another one.
   useFocusEffect(
     useCallback(() => {
       load();
+      return () => {
+        heroRef.current?.pauseAsync?.().catch(() => {});
+      };
     }, [load])
   );
 
@@ -103,6 +112,7 @@ export default function HomeScreen({ navigation }) {
               {/* ----- Today's devotional, playable in place ----- */}
               <View style={[styles.heroCard, { backgroundColor: theme.card }]}>
                 <Video
+                  ref={heroRef}
                   // key forces a fresh player when the day's video
                   // changes (e.g. after a pull-to-refresh at midnight)
                   key={videos[0].id}
