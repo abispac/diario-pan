@@ -92,11 +92,6 @@ export default function PlayerScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* A verse to close the moment - part of the atmosphere. */}
-      <Text style={[styles.verse, { color: theme.textMuted }]}>
-        «Lámpara es a mis pies tu palabra,{"\n"}y lumbrera a mi camino.»
-      </Text>
-      <Text style={[styles.verseRef, { color: theme.textMuted }]}>Salmos 119:105</Text>
     </ScrollView>
   );
 }
@@ -126,11 +121,6 @@ const styles = StyleSheet.create({
     fontSize: 17, fontWeight: "700", textAlign: "center",
     paddingVertical: 16, paddingHorizontal: 20,
   },
-  verse: {
-    marginTop: 28, fontSize: 15, fontStyle: "italic",
-    textAlign: "center", lineHeight: 24,
-  },
-  verseRef: { marginTop: 6, fontSize: 12, fontWeight: "600" },
   errorWrap: { alignItems: "center", padding: 32 },
   errorEmoji: { fontSize: 44, marginBottom: 12 },
   errorText: { textAlign: "center", fontSize: 15, lineHeight: 22 },
