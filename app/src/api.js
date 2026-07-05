@@ -12,9 +12,18 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// The production server. This is used whenever no override has
-// been set in Ajustes.
-export const DEFAULT_SERVER_URL = "https://diariopan.com";
+// The default server - what every phone uses unless someone typed
+// an override in Ajustes -> Avanzado.
+//
+// ⚠️ TESTING PHASE: currently points at the Cloudflare tunnel to
+// Javier's Mac so outside testers can just open the app and go.
+// If the tunnel URL changes, edit this line and ship it OTA:
+//   cd ~/AppDev/diario-pan/app
+//   git add -A && git commit -m "new tunnel" && git push
+//   eas update --channel production --message "new tunnel url"
+// For the real launch, change it back to: https://diariopan.com
+export const DEFAULT_SERVER_URL =
+  "https://mac-often-motorola-jon.trycloudflare.com";
 
 // The key under which an override is remembered on the phone.
 const KEY_SERVER = "dp_server_url";
