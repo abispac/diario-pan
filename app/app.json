@@ -19,6 +19,7 @@
       },
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ],
         "NSAppTransportSecurity": {
@@ -36,6 +37,8 @@
       },
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM"
       ]
     },
@@ -44,7 +47,9 @@
         "expo-notifications",
         {
           "color": "#7c4a1e",
-          "sounds": ["./assets/campana.wav"]
+          "sounds": [
+            "./assets/campana.wav"
+          ]
         }
       ],
       [
@@ -64,6 +69,12 @@
         "projectId": "a2467deb-23c5-4316-bfa1-a24f570f23c0"
       }
     },
-    "owner": "abispac"
+    "owner": "abispac",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a2467deb-23c5-4316-bfa1-a24f570f23c0"
+    }
   }
 }
