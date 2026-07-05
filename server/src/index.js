@@ -55,6 +55,18 @@ app.get("/soporte", page("soporte"));       // required by Apple ("Support URL")
 // The QR page needs the store links; serve them as a tiny JSON.
 app.get("/api/store-links", (req, res) => res.json(config.storeUrls));
 
+// ---- The ONE smart download link: diariopan.com/app ----
+// Reads the visitor's device from the User-Agent header and sends
+// them straight to the right store. Anything that isn't a phone
+// (laptops, tablets we can't identify) lands on the QR page.
+// This is the single link to print, share on WhatsApp, etc.
+app.get("/app", (req, res) => {
+  const ua = String(req.headers["user-agent"] || "");
+  if (/iPhone|iPad|iPod/i.test(ua)) return res.redirect(config.storeUrls.ios);
+  if (/Android/i.test(ua)) return res.redirect(config.storeUrls.android);
+  res.redirect("/descargar");
+});
+
 // Simple health check - handy for uptime monitors.
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
