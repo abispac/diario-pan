@@ -33,9 +33,14 @@ export function downloadFromUrl(url) {
     const outPath = path.join(os.tmpdir(), `diario-pan-${crypto.randomUUID()}.mp4`);
 
     const args = [
-      // Best video+audio combined into an mp4 (needs ffmpeg); if
-      // that's unavailable, fall back to the best single mp4 file.
-      "-f", "bv*+ba/b[ext=mp4]/b",
+      // IMPORTANT codec choice: phones (especially iPhones) can
+      // only play H.264 video + AAC audio natively. YouTube's
+      // "best" streams are often VP9, which plays in web browsers
+      // but shows as audio-only on iOS. So: prefer H.264+AAC up
+      // to 1080p, then any mp4, then whatever exists.
+      "-f",
+      "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/" +
+        "b[ext=mp4][vcodec^=avc1]/b[ext=mp4]/b",
       "--merge-output-format", "mp4",
       "--no-playlist",          // one video, never a whole page of them
       "--max-filesize", "2G",   // same ceiling as manual uploads
