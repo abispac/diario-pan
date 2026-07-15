@@ -41,3 +41,12 @@ toma menos de un minuto.*
 | "Contraseña incorrecta" | Error al escribirla | Verifica con el administrador |
 | "⚠️ ...la copia en Google Drive falló" | El video SÍ se subió y SÍ funciona, pero la copia de respaldo en Drive falló | Avísale al administrador, sin prisa |
 | "No se pudo conectar con el servidor" | Problema de internet o el servidor está caído | Revisa tu internet; si persiste, avísale al administrador |
+
+## ¿Olvidaste la contraseña?
+
+No hay "recuperar contraseña" (a propósito: menos puertas que
+atacar). El administrador la cambia en un minuto: editar
+`ADMIN_PASSWORD` en `server/.env` del servidor y reiniciar la app
+(`pm2 restart diario-pan`). La nueva contraseña vale al instante.
+Nota: tras 5 intentos fallidos, la página bloquea ese dispositivo
+por 15 minutos.

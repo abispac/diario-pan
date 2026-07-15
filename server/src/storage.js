@@ -40,10 +40,19 @@ export function localPathFor(videoId, mimeType) {
 
 // Save an uploaded temp file as the local copy of a video.
 // We copy (not move) because the same temp file is also being
-// read by the Google Drive upload.
+// read by the Google Drive upload. The copy is written to a
+// ".part" file first and renamed at the end (rename is atomic),
+// so a half-written file can never be mistaken for a real video.
 export async function saveLocalCopy(tempFilePath, videoId, mimeType) {
   const dest = localPathFor(videoId, mimeType);
-  await pipeline(fs.createReadStream(tempFilePath), fs.createWriteStream(dest));
+  const part = `${dest}.part`;
+  try {
+    await pipeline(fs.createReadStream(tempFilePath), fs.createWriteStream(part));
+    fs.renameSync(part, dest);
+  } catch (err) {
+    fs.unlink(part, () => {}); // never leave debris behind
+    throw err;
+  }
   return dest;
 }
 
@@ -66,30 +75,68 @@ export function hasLocalCopy(videoId, mimeType) {
 // Serve the local file with full HTTP Range support, same as the
 // Drive path, so the player can seek freely.
 // ----------------------------------------------------------------
+// Returns a Promise that resolves when the response has been fully
+// handled, and REJECTS only if nothing was sent yet (so the caller
+// can still fall back to Drive). Stream errors after headers went
+// out just terminate the connection - the player will retry with
+// a Range request and land on Drive if the file is truly broken.
 export function streamLocal(videoId, mimeType, rangeHeader, res) {
   const filePath = localPathFor(videoId, mimeType);
   const { size } = fs.statSync(filePath);
 
-  if (rangeHeader) {
-    // Range header looks like "bytes=12345-" or "bytes=0-999".
-    const match = /bytes=(\d+)-(\d*)/.exec(rangeHeader);
-    const start = match ? Number(match[1]) : 0;
-    const end = match && match[2] ? Number(match[2]) : size - 1;
+  let start = 0;
+  let end = size - 1;
+  let partial = false;
 
+  if (rangeHeader) {
+    // "bytes=12345-", "bytes=0-999" or the suffix form "bytes=-500"
+    // (iOS players use all three).
+    const match = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader).trim());
+    if (match && (match[1] || match[2])) {
+      partial = true;
+      if (match[1]) {
+        start = Number(match[1]);
+        end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+      } else {
+        // Suffix range: the LAST N bytes of the file.
+        start = Math.max(size - Number(match[2]), 0);
+        end = size - 1;
+      }
+      if (start >= size || start > end) {
+        // Unsatisfiable range - tell the player how big the file is.
+        res.status(416).setHeader("Content-Range", `bytes */${size}`);
+        return res.end();
+      }
+    }
+  }
+
+  if (partial) {
     res.status(206); // Partial Content
     res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
-    res.setHeader("Content-Length", end - start + 1);
-    res.setHeader("Accept-Ranges", "bytes");
-    res.setHeader("Content-Type", mimeType);
-    fs.createReadStream(filePath, { start, end }).pipe(res);
   } else {
-    // No range requested: send the whole file.
     res.status(200);
-    res.setHeader("Content-Length", size);
-    res.setHeader("Accept-Ranges", "bytes");
-    res.setHeader("Content-Type", mimeType);
-    fs.createReadStream(filePath).pipe(res);
   }
+  res.setHeader("Content-Length", end - start + 1);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Type", mimeType);
+
+  // IMPORTANT: without an 'error' listener, a read failure mid-
+  // stream (disk error, file pruned between stat and open) would
+  // crash the entire Node process.
+  return new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(filePath, { start, end });
+    stream.on("error", (err) => {
+      if (!res.headersSent) {
+        reject(err); // caller falls back to Drive
+      } else {
+        res.destroy(); // too late to switch source; drop connection
+        resolve();
+      }
+    });
+    stream.on("close", resolve);
+    stream.pipe(res);
+    res.on("close", () => stream.destroy());
+  });
 }
 
 // Delete the local copy (admin deleted the video, or pruning).

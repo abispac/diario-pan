@@ -9,6 +9,7 @@
 // ================================================================
 
 import { Router } from "express";
+import { Expo } from "expo-server-sdk";
 import { upsertDevice, deleteDevice } from "../db.js";
 
 const router = Router();
@@ -19,8 +20,14 @@ router.post("/", (req, res) => {
   const { pushToken, notifyHour, notifyMinute, timezone } = req.body || {};
 
   // Basic sanity checks - reject garbage before it hits the DB.
+  // This endpoint is public (phones call it with no password), so
+  // only real Expo push tokens are allowed in - otherwise anyone
+  // could fill the database with junk rows.
   if (!pushToken || typeof pushToken !== "string") {
     return res.status(400).json({ error: "Falta el token de notificaciones" });
+  }
+  if (pushToken.length > 200 || !Expo.isExpoPushToken(pushToken)) {
+    return res.status(400).json({ error: "Token de notificaciones inválido" });
   }
   const hour = Number(notifyHour);
   const minute = Number(notifyMinute);
@@ -37,10 +44,21 @@ router.post("/", (req, res) => {
     notifyMinute: minute,
     // If the app didn't send a timezone, assume US Eastern -
     // adjust the default to wherever most of the congregation is.
-    timezone: typeof timezone === "string" && timezone ? timezone : "America/New_York",
+    timezone: isValidTimezone(timezone) ? timezone : "America/New_York",
   });
   res.json({ ok: true });
 });
+
+// Is this a real IANA timezone name? (Intl throws on unknown ones.)
+function isValidTimezone(tz) {
+  if (typeof tz !== "string" || !tz || tz.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // DELETE /api/devices - the user turned notifications off in
 // Settings; forget their token entirely.

@@ -85,6 +85,17 @@ export async function streamVideo(fileId, rangeHeader, res) {
   // Pipe the bytes through. If the phone disconnects mid-video
   // (user closed the app), destroy the Drive stream too so we
   // don't keep downloading for nobody.
+  //
+  // IMPORTANT: without an 'error' listener, a network hiccup from
+  // Google mid-stream would crash the entire Node process.
+  driveRes.data.on("error", (err) => {
+    console.error("[drive] Stream error mid-download:", err.message);
+    if (!res.headersSent) {
+      res.status(503).json({ error: "Video no disponible temporalmente" });
+    } else {
+      res.destroy(); // too late for a clean error; drop the connection
+    }
+  });
   driveRes.data.pipe(res);
   res.on("close", () => driveRes.data.destroy());
 }

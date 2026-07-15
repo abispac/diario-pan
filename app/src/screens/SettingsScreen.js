@@ -58,14 +58,23 @@ export default function SettingsScreen({ navigation }) {
 
   // Apply a new time: reschedules the local notification AND
   // updates the server, all inside setNotificationTime().
-  const applyTime = async (newTime) => {
-    setTime(newTime);
-    await setNotificationTime(newTime.getHours(), newTime.getMinutes());
-    // Tiny "Guardado ✓" confirmation that fades the anxiety of
-    // "did it save?" without needing a button.
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
+  //
+  // DEBOUNCED: the iOS spinner fires onChange for every wheel
+  // detent. Without the debounce, scrolling from 8:00 to 21:30
+  // would reschedule + hit the server dozens of times.
+  const debounceRef = React.useRef(null);
+  const applyTime = (newTime) => {
+    setTime(newTime); // UI updates instantly
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      await setNotificationTime(newTime.getHours(), newTime.getMinutes());
+      // Tiny "Guardado ✓" confirmation that fades the anxiety of
+      // "did it save?" without needing a button.
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2000);
+    }, 800);
   };
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   return (
     <ScrollView
@@ -175,11 +184,12 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </View>
 
-      {/* ---------- Advanced: server address ----------
-          Lets the SAME build talk to a test server today (e.g. a
-          MacBook on the local WiFi) and the real server tomorrow,
-          with no rebuild. Normal users never need to touch this -
-          leaving it empty uses the official server. */}
+      {/* ---------- Advanced: server address (DEV BUILDS ONLY) ----------
+          Lets a development build talk to a test server (e.g. a
+          MacBook on the local WiFi) with no rebuild. Hidden in the
+          store version: end users could break their app with one
+          typo, and reviewers flag user-configurable endpoints. */}
+      {__DEV__ && (
       <View style={[styles.card, { backgroundColor: theme.card }]}>
         <Text style={[styles.cardTitle, { color: theme.text }]}>🔧 Avanzado</Text>
         <Text style={[styles.cardHint, { color: theme.textMuted }]}>
@@ -204,6 +214,7 @@ export default function SettingsScreen({ navigation }) {
           }}
         />
       </View>
+      )}
 
       {/* ---------- About ---------- */}
       <Text style={[styles.about, { color: theme.textMuted }]}>

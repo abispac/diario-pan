@@ -31,7 +31,7 @@ import {
   streamLocal,
   deleteLocalCopy,
 } from "../storage.js";
-import { requireAdmin } from "../auth.js";
+import { requireAdmin, isAdmin } from "../auth.js";
 
 const router = Router();
 
@@ -75,12 +75,23 @@ router.get("/:id/stream", async (req, res) => {
   const video = getVideo(Number(req.params.id));
   if (!video) return res.status(404).json({ error: "Video no encontrado" });
 
+  // Scheduled videos stay private until their day arrives. IDs are
+  // sequential, so without this check anyone could watch tomorrow's
+  // devotional today by guessing the next number. The admin (with
+  // the session cookie) can still preview scheduled videos.
+  // "en-CA" formats as YYYY-MM-DD in SERVER-LOCAL time, matching
+  // the date('now','localtime') used for the public list query.
+  const today = new Date().toLocaleDateString("en-CA");
+  if (video.publish_date > today && !isAdmin(req)) {
+    return res.status(404).json({ error: "Video no encontrado" });
+  }
+
   const range = req.headers.range;
 
   // --- Attempt 1: local disk ---
   if (hasLocalCopy(video.id, video.mime_type)) {
     try {
-      return streamLocal(video.id, video.mime_type, range, res);
+      return await streamLocal(video.id, video.mime_type, range, res);
     } catch (err) {
       // Local file exists but something went wrong reading it
       // (corrupt file, disk error). Log it and fall through to
@@ -152,8 +163,12 @@ async function catalogVideo(tempPath, { title, publishDate, mimeType }) {
 // Shared helpers for both intake routes: default the date to
 // today, and build the friendly default title ("Diario Pan – dd/mm/yyyy").
 function resolveDateAndTitle(body) {
-  const publishDate =
-    (body?.publishDate || "").trim() || new Date().toISOString().slice(0, 10);
+  let publishDate = (body?.publishDate || "").trim();
+  // Anything that isn't a real YYYY-MM-DD date becomes "today" -
+  // a malformed date would silently break every date comparison.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(publishDate)) {
+    publishDate = new Date().toLocaleDateString("en-CA");
+  }
   const [y, m, d] = publishDate.split("-");
   const title = (body?.title || "").trim() || `Diario Pan – ${d}/${m}/${y}`;
   return { publishDate, title };
@@ -167,7 +182,15 @@ router.post("/", requireAdmin, upload.single("video"), async (req, res) => {
   if (!file) return res.status(400).json({ error: "Falta el archivo de video" });
 
   const { publishDate, title } = resolveDateAndTitle(req.body);
-  const mimeType = file.mimetype || "video/mp4";
+
+  // Only accept real video types. The browser-reported mime type is
+  // stored and later echoed back as Content-Type, so without this
+  // whitelist someone with the admin cookie could host arbitrary
+  // content (e.g. an HTML page) under diariopan.com.
+  const ALLOWED_TYPES = ["video/mp4", "video/quicktime"];
+  const mimeType = ALLOWED_TYPES.includes(file.mimetype)
+    ? file.mimetype
+    : "video/mp4";
 
   try {
     const { videoId, driveWarning } = await catalogVideo(file.path, {

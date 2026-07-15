@@ -23,6 +23,13 @@ import { startPushScheduler } from "./push.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+// We run behind the host's proxy (Namecheap/cPanel). This makes
+// req.ip the real visitor IP (needed for login rate limiting) and
+// lets the "secure" cookie flag work behind HTTPS termination.
+app.set("trust proxy", 1);
+// Never leak stack traces in error responses.
+app.set("env", process.env.NODE_ENV || "production");
+
 // Parse JSON bodies (small ones - the video upload itself goes
 // through multer, not through this).
 app.use(express.json({ limit: "1mb" }));
@@ -69,6 +76,18 @@ app.get("/app", (req, res) => {
 
 // Simple health check - handy for uptime monitors.
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// ---- Last-resort error handler ----
+// Turns any uncaught route error (e.g. multer "file too large")
+// into clean JSON instead of Express's default HTML stack trace.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err?.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: "El archivo es demasiado grande" });
+  }
+  console.error("[server] Unhandled error:", err);
+  res.status(500).json({ error: "Error interno del servidor" });
+});
 
 // ---- Go ----
 app.listen(config.port, () => {

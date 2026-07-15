@@ -23,14 +23,16 @@
 
 import { Expo } from "expo-server-sdk";
 import cron from "node-cron";
-import {
+import fs from "node:fs";
+import db, {
   listDevices,
   deleteDevice,
   listUnnotifiedPublishedVideos,
   markVideoNotified,
   listAllVideos,
 } from "./db.js";
-import { pruneOldLocalCopies } from "./storage.js";
+import { pruneOldLocalCopies, hasLocalCopy, localPathFor } from "./storage.js";
+import { uploadVideo } from "./drive.js";
 
 const expo = new Expo();
 
@@ -110,15 +112,20 @@ async function tick() {
       sound: "default", // plays the phone's notification sound - the "alarm"
       title: "🍞 Diario Pan",
       body: "Tu devocional de hoy está listo. ¡Toca para verlo!",
-      data: { videoId: newVideos[0].id }, // app opens straight to the video
+      // Open straight to the NEWEST video (there is usually only one).
+      data: { videoId: newVideos[newVideos.length - 1].id },
       priority: "high",
+      _dateStr: now.dateStr, // internal bookkeeping, stripped below
     });
-    notifiedToday.set(device.push_token, now.dateStr);
   }
 
   // Expo wants messages in chunks of up to 100. Send each chunk
   // and clean up any tokens Expo reports as dead (uninstalled app).
+  // A device only counts as "notified today" AFTER its chunk was
+  // accepted by Expo - if the send fails we retry next minute.
   for (const chunk of expo.chunkPushNotifications(messages)) {
+    const dateByToken = new Map(chunk.map((m) => [m.to, m._dateStr]));
+    for (const m of chunk) delete m._dateStr;
     try {
       const tickets = await expo.sendPushNotificationsAsync(chunk);
       tickets.forEach((ticket, i) => {
@@ -127,6 +134,8 @@ async function tick() {
           ticket.details?.error === "DeviceNotRegistered"
         ) {
           deleteDevice(chunk[i].to);
+        } else {
+          notifiedToday.set(chunk[i].to, dateByToken.get(chunk[i].to));
         }
       });
     } catch (err) {
@@ -164,9 +173,41 @@ export function startPushScheduler() {
     try {
       const all = listAllVideos();
       pruneOldLocalCopies(all);
-      const today = new Date().toISOString().slice(0, 10);
+      // Close out videos published TWO or more days ago (server-local
+      // time, matching the publish-date queries). Using "yesterday"
+      // here would be a bug: at 3:15am server time it is still the
+      // previous evening in timezones west of the server, and users
+      // there with late notification hours would silently miss their
+      // devotional. Two days covers every timezone on Earth.
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 2);
+      const cutoffStr = cutoff.toLocaleDateString("en-CA"); // YYYY-MM-DD
       for (const v of all) {
-        if (!v.notified && v.publish_date < today) markVideoNotified(v.id);
+        if (!v.notified && v.publish_date <= cutoffStr) markVideoNotified(v.id);
+      }
+
+      // Retry Google Drive uploads that failed on upload day.
+      // Without this, a video whose Drive copy never happened
+      // ("pending") would be lost forever once the local copy is
+      // pruned by LOCAL_KEEP_DAYS.
+      for (const v of all) {
+        if (v.drive_file_id === "pending" && hasLocalCopy(v.id, v.mime_type)) {
+          uploadVideo(
+            fs.createReadStream(localPathFor(v.id, v.mime_type)),
+            `diario-pan-${v.publish_date}.mp4`,
+            v.mime_type
+          )
+            .then(({ fileId }) => {
+              db.prepare(`UPDATE videos SET drive_file_id = ? WHERE id = ?`).run(
+                fileId,
+                v.id
+              );
+              console.log(`[push] Drive retry OK for video #${v.id}`);
+            })
+            .catch((err) =>
+              console.error(`[push] Drive retry failed for #${v.id}:`, err.message)
+            );
+        }
       }
     } catch (err) {
       console.error("[push] nightly job failed:", err.message);

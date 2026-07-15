@@ -13,17 +13,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // The default server - what every phone uses unless someone typed
-// an override in Ajustes -> Avanzado.
+// an override in Ajustes -> Avanzado (visible only in dev builds).
 //
-// ⚠️ TESTING PHASE: currently points at the Cloudflare tunnel to
-// Javier's Mac so outside testers can just open the app and go.
-// If the tunnel URL changes, edit this line and ship it OTA:
+// This is the production server. If it ever has to change, ship
+// the new URL over the air:
 //   cd ~/AppDev/diario-pan/app
-//   git add -A && git commit -m "new tunnel" && git push
-//   eas update --channel production --message "new tunnel url"
-// For the real launch, change it back to: https://diariopan.com
-export const DEFAULT_SERVER_URL =
-  "https://mac-often-motorola-jon.trycloudflare.com";
+//   git add -A && git commit -m "new server url" && git push
+//   eas update --channel production --message "new server url"
+export const DEFAULT_SERVER_URL = "https://diariopan.com";
 
 // The key under which an override is remembered on the phone.
 const KEY_SERVER = "dp_server_url";
@@ -65,15 +62,16 @@ export async function setServerUrl(url) {
 // ----------------------------------------------------------------
 
 // Fetch the list of published videos for the main screen.
-// Returns [] on network trouble so the UI can show a friendly
-// message instead of crashing.
+// Returns an ARRAY on success (possibly empty - the church simply
+// hasn't published yet) and NULL on network/server trouble, so the
+// UI can tell "no videos" apart from "no connection".
 export async function fetchVideos() {
   try {
     const res = await fetch(`${serverUrl}/api/videos`);
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     return await res.json();
   } catch {
-    return [];
+    return null;
   }
 }
 

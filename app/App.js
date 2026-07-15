@@ -22,7 +22,10 @@ import WelcomeScreen from "./src/screens/WelcomeScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import PlayerScreen from "./src/screens/PlayerScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { hasCompletedWelcome } from "./src/notifications";
+import {
+  hasCompletedWelcome,
+  refreshDeviceRegistration,
+} from "./src/notifications";
 import { loadServerUrl } from "./src/api";
 import { PALETTES, DEFAULT_PALETTE, COMMON } from "./src/theme";
 
@@ -47,6 +50,9 @@ export default function App() {
       setWelcomed(await hasCompletedWelcome());
       const saved = await AsyncStorage.getItem(KEY_PALETTE);
       if (saved && PALETTES[saved]) setPaletteKey(saved);
+      // Quietly re-register with the server so the push always uses
+      // the phone's CURRENT timezone (matters if the user traveled).
+      refreshDeviceRegistration();
     })();
   }, []);
 
@@ -58,14 +64,31 @@ export default function App() {
   };
 
   // If the user TAPS a push notification, take them straight to
-  // the video it announces - no hunting through menus.
+  // the video it announces - no hunting through menus. Two cases:
+  //   a) App running (foreground/background): the listener fires.
+  //   b) App CLOSED and launched BY the tap: the tap happened
+  //      before any listener existed, so we ask the OS for the
+  //      "last notification response" once navigation is ready.
   const navigationRef = React.useRef(null);
+  const navReady = React.useRef(false);
+  const pendingVideoId = React.useRef(null);
+
+  const openVideo = (videoId) => {
+    if (!videoId) return;
+    if (navReady.current && navigationRef.current) {
+      navigationRef.current.navigate("Player", { videoId });
+    } else {
+      pendingVideoId.current = videoId; // navigate in onReady below
+    }
+  };
+
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const videoId = response.notification.request.content.data?.videoId;
-      if (videoId && navigationRef.current) {
-        navigationRef.current.navigate("Player", { videoId });
-      }
+      openVideo(response.notification.request.content.data?.videoId);
+    });
+    // Cold start: was the app launched by tapping a notification?
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) openVideo(response.notification.request.content.data?.videoId);
     });
     return () => sub.remove();
   }, []);
@@ -84,7 +107,18 @@ export default function App() {
 
   return (
     <ThemeContext.Provider value={theme}>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => {
+          navReady.current = true;
+          if (pendingVideoId.current) {
+            navigationRef.current?.navigate("Player", {
+              videoId: pendingVideoId.current,
+            });
+            pendingVideoId.current = null;
+          }
+        }}
+      >
         <StatusBar style="dark" />
         <Stack.Navigator
           // Skip Welcome for anyone who already finished it.

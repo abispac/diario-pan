@@ -182,6 +182,35 @@ export async function getNotificationTime() {
 }
 
 // ----------------------------------------------------------------
+// refreshDeviceRegistration() - called on EVERY app launch.
+//
+// Re-sends the push token + chosen time + CURRENT timezone to the
+// server. This is what keeps the server push correct when the user
+// travels or moves to another timezone. It never prompts: if the
+// user hasn't granted notification permission, it does nothing.
+// ----------------------------------------------------------------
+export async function refreshDeviceRegistration() {
+  try {
+    if (!(await hasCompletedWelcome())) return; // nothing chosen yet
+    if (!Device.isDevice) return;
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== "granted") return; // never prompt from a cold launch
+
+    const pushToken = await getPushToken(); // permission already granted
+    if (!pushToken) return;
+    const { hour, minute } = await getNotificationTime();
+    await registerDevice({
+      pushToken,
+      hour,
+      minute,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  } catch {
+    // Offline or server napping - we'll try again next launch.
+  }
+}
+
+// ----------------------------------------------------------------
 // Welcome-flow bookkeeping: has this phone already seen the
 // presentation video and picked a time?
 // ----------------------------------------------------------------

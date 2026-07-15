@@ -19,13 +19,8 @@
       },
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "_comment": "Allows plain http:// so the TestFlight build can stream from a MacBook on local WiFi. Once fully on https (Namecheap + certbot), remove NSAppTransportSecurity for App Store release."
-        },
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -36,10 +31,7 @@
         "backgroundColor": "#f5ede3"
       },
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM"
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
     "plugins": [

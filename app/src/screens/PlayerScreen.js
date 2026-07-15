@@ -12,7 +12,7 @@
 // phone never talks to Facebook, never sees an ad.
 // ================================================================
 
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,25 @@ export default function PlayerScreen({ route, navigation }) {
   const { videoId, title } = route.params || {};
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
+  const videoRef = useRef(null);
+
+  // A Player with no video to play (bad deep link, malformed
+  // notification data) should quietly return Home, not show a
+  // spinner that never resolves.
+  useEffect(() => {
+    if (!videoId) navigation.goBack();
+  }, [videoId]);
+
+  // Stop the audio when the user leaves this screen - otherwise
+  // the devotional keeps playing over the Home screen.
+  useEffect(() => {
+    const unsub = navigation.addListener("blur", () => {
+      videoRef.current?.pauseAsync?.().catch(() => {});
+    });
+    return unsub;
+  }, [navigation]);
+
+  if (!videoId) return null;
 
   return (
     <ScrollView
@@ -75,6 +94,7 @@ export default function PlayerScreen({ route, navigation }) {
               />
             )}
             <Video
+              ref={videoRef}
               source={{ uri: streamUrl(videoId) }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}

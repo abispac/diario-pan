@@ -17,7 +17,7 @@
     "expo-server-sdk": "^3.13.0",
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.1",
     "node-cron": "^3.0.3"
   },
   "engines": {

@@ -23,6 +23,7 @@ import { fetchVideos, streamUrl } from "../api";
 // Turn "2026-07-04" into "viernes, 4 de julio" - warm and human,
 // the way you'd say it out loud.
 function prettyDate(isoDate) {
+  if (!isoDate) return ""; // never crash over a missing date
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("es", {
     weekday: "long",
@@ -36,13 +37,22 @@ export default function HomeScreen({ navigation }) {
   const [videos, setVideos] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   // Handle to today's inline video player, so we can pause it
   // when the user leaves this screen.
   const heroRef = React.useRef(null);
 
   const load = useCallback(async () => {
-    setVideos(await fetchVideos());
+    // fetchVideos() returns null on network/server trouble, so we
+    // can tell "no connection" apart from "nothing published yet".
+    const result = await fetchVideos();
+    if (result === null) {
+      setOffline(true); // keep whatever list we already had
+    } else {
+      setOffline(false);
+      setVideos(result);
+    }
     setLoaded(true);
   }, []);
 
@@ -102,7 +112,9 @@ export default function HomeScreen({ navigation }) {
         ListEmptyComponent={
           loaded && videos.length === 0 ? (
             <Text style={[styles.empty, { color: theme.textMuted }]}>
-              Aún no hay devocionales.{"\n"}Desliza hacia abajo para actualizar.
+              {offline
+                ? "No se pudo conectar.\nRevisa tu conexión a internet y desliza hacia abajo para reintentar."
+                : "Aún no hay devocionales.\nDesliza hacia abajo para actualizar."}
             </Text>
           ) : null
         }
