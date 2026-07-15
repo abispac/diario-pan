@@ -161,7 +161,13 @@ async function catalogVideo(tempPath, { title, publishDate, mimeType }) {
 }
 
 // Shared helpers for both intake routes: default the date to
-// today, and build the friendly default title ("Diario Pan – dd/mm/yyyy").
+// today, and build the friendly default title, e.g.
+// "Devocional del Diario Pan para el día 11 de Julio con el pastor Marcos Richards"
+const MONTHS_ES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
 function resolveDateAndTitle(body) {
   let publishDate = (body?.publishDate || "").trim();
   // Anything that isn't a real YYYY-MM-DD date becomes "today" -
@@ -169,8 +175,12 @@ function resolveDateAndTitle(body) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(publishDate)) {
     publishDate = new Date().toLocaleDateString("en-CA");
   }
-  const [y, m, d] = publishDate.split("-");
-  const title = (body?.title || "").trim() || `Diario Pan – ${d}/${m}/${y}`;
+  const [, m, d] = publishDate.split("-");
+  const title =
+    (body?.title || "").trim() ||
+    `Devocional del Diario Pan para el día ${Number(d)} de ${
+      MONTHS_ES[Number(m) - 1]
+    } con el pastor Marcos Richards`;
   return { publishDate, title };
 }
 

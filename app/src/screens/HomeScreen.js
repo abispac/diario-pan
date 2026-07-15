@@ -11,6 +11,7 @@ import {
   View,
   Text,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
@@ -97,89 +98,101 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ---------- Today's video + the list of older ones ----------
+      {/* ---------- Today's video + the older ones ----------
           The newest video (videos[0]) is rendered as a playable
-          card in the list header, so it plays RIGHT HERE on the
-          main screen. Only the older devotionals are list rows. */}
-      <FlatList
-        data={videos.slice(1)}
-        keyExtractor={(item) => String(item.id)}
+          card, so it plays RIGHT HERE on the main screen. The
+          older devotionals scroll SIDEWAYS below it, like flipping
+          through the pages of a diary. */}
+      <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        // Friendly empty state instead of a blank void.
-        ListEmptyComponent={
-          loaded && videos.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.textMuted }]}>
-              {offline
-                ? "No se pudo conectar.\nRevisa tu conexión a internet y desliza hacia abajo para reintentar."
-                : "Aún no hay devocionales.\nDesliza hacia abajo para actualizar."}
-            </Text>
-          ) : null
-        }
-        ListHeaderComponent={
-          videos.length > 0 ? (
-            <View>
-              {/* ----- Today's devotional, playable in place ----- */}
-              <View style={[styles.heroCard, { backgroundColor: theme.card }]}>
-                <Video
-                  ref={heroRef}
-                  // key forces a fresh player when the day's video
-                  // changes (e.g. after a pull-to-refresh at midnight)
-                  key={videos[0].id}
-                  source={{ uri: streamUrl(videos[0].id) }}
-                  style={styles.heroVideo}
-                  resizeMode={ResizeMode.CONTAIN}
-                  useNativeControls // play/pause/seek right here
-                  // NOT shouldPlay: it waits politely until the
-                  // user presses play.
-                />
-                <View style={styles.heroMeta}>
-                  <View style={[styles.todayTag, { backgroundColor: theme.accent }]}>
-                    <Text style={styles.todayText}>HOY</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-                      {videos[0].title}
-                    </Text>
-                    <Text style={[styles.cardDate, { color: theme.textMuted }]}>
-                      {prettyDate(videos[0].publish_date)}
-                    </Text>
-                  </View>
+      >
+        {/* Friendly empty state instead of a blank void. */}
+        {loaded && videos.length === 0 && (
+          <Text style={[styles.empty, { color: theme.textMuted }]}>
+            {offline
+              ? "No se pudo conectar.\nRevisa tu conexión a internet y desliza hacia abajo para reintentar."
+              : "Aún no hay devocionales.\nDesliza hacia abajo para actualizar."}
+          </Text>
+        )}
+
+        {videos.length > 0 && (
+          <View>
+            {/* ----- Today's devotional, playable in place ----- */}
+            <View style={[styles.heroCard, { backgroundColor: theme.card }]}>
+              <Video
+                ref={heroRef}
+                // key forces a fresh player when the day's video
+                // changes (e.g. after a pull-to-refresh at midnight)
+                key={videos[0].id}
+                source={{ uri: streamUrl(videos[0].id) }}
+                style={styles.heroVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls // play/pause/seek right here
+                // NOT shouldPlay: it waits politely until the
+                // user presses play.
+              />
+              <View style={styles.heroMeta}>
+                <View style={[styles.todayTag, { backgroundColor: theme.accent }]}>
+                  <Text style={styles.todayText}>HOY</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={2}>
+                    {videos[0].title}
+                  </Text>
+                  <Text style={[styles.cardDate, { color: theme.textMuted }]}>
+                    {prettyDate(videos[0].publish_date)}
+                  </Text>
                 </View>
               </View>
+            </View>
 
-              {/* Section label for the older devotionals */}
-              {videos.length > 1 && (
+            {/* ----- Older devotionals: horizontal row ----- */}
+            {videos.length > 1 && (
+              <View>
                 <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
                   Devocionales anteriores
                 </Text>
-              )}
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.card, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate("Player", { videoId: item.id, title: item.title })}
-            activeOpacity={0.7}
-          >
-            {/* Play badge - these older ones open the full player */}
-            <View style={[styles.playBadge, { backgroundColor: theme.accent }]}>
-              <Text style={{ color: "#fff", fontSize: 18 }}>▶</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={[styles.cardDate, { color: theme.textMuted }]}>
-                {prettyDate(item.publish_date)}
-              </Text>
-            </View>
-          </TouchableOpacity>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={videos.slice(1)}
+                  keyExtractor={(item) => String(item.id)}
+                  contentContainerStyle={{ paddingRight: 4, paddingVertical: 4 }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.pastCard, { backgroundColor: theme.card }]}
+                      onPress={() =>
+                        navigation.navigate("Player", {
+                          videoId: item.id,
+                          title: item.title,
+                        })
+                      }
+                      activeOpacity={0.7}
+                    >
+                      {/* Play badge - these open the full player */}
+                      <View style={[styles.playBadge, { backgroundColor: theme.accent }]}>
+                        <Text style={{ color: "#fff", fontSize: 18 }}>▶</Text>
+                      </View>
+                      <Text
+                        style={[styles.cardTitle, { color: theme.text, marginTop: 10 }]}
+                        numberOfLines={3}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.cardDate, { color: theme.textMuted }]}>
+                        {prettyDate(item.publish_date)}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+          </View>
         )}
-      />
+      </ScrollView>
     </View>
   );
 }
@@ -208,9 +221,8 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: "700", textTransform: "uppercase",
     letterSpacing: 0.5, marginTop: 16, marginBottom: 10, marginLeft: 4,
   },
-  card: {
-    flexDirection: "row", alignItems: "center",
-    borderRadius: 14, padding: 14, marginBottom: 12,
+  pastCard: {
+    width: 190, borderRadius: 14, padding: 14, marginRight: 12,
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },

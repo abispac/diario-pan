@@ -102,17 +102,27 @@
     .archive-heading::after {          /* a soft rule line that fills the row */
       content: ""; flex: 1; height: 1px; background: #e2d5c3;
     }
+    /* A single row that scrolls sideways, like flipping through
+       the pages of a diary. */
     .grid {
-      display: grid; gap: 16px;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      display: flex; gap: 16px;
+      overflow-x: auto;
+      padding: 4px 4px 14px;           /* room for the card shadow */
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
     }
+    .grid::-webkit-scrollbar { height: 8px; }
+    .grid::-webkit-scrollbar-thumb { background: #d8c9b4; border-radius: 4px; }
+    .grid::-webkit-scrollbar-track { background: transparent; }
     .video-card {
       background: var(--card); border-radius: 14px; padding: 16px;
       display: flex; align-items: center; gap: 14px;
       cursor: pointer; border: 2px solid transparent;
       box-shadow: 0 2px 10px rgba(78, 45, 16, .07);
       transition: transform .12s, border-color .12s;
-      text-align: left; width: 100%;
+      text-align: left;
+      flex: 0 0 280px;                 /* fixed width, scrolls sideways */
+      scroll-snap-align: start;
     }
     .video-card:hover { transform: translateY(-2px); border-color: var(--brand); }
     .video-card.active { border-color: var(--brand); background: #fdf9f2; }
