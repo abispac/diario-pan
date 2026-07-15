@@ -151,13 +151,19 @@
       const r = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: $("password").value }),
+        // trim: passwords copied from a terminal often carry an
+        // invisible trailing space or newline.
+        body: JSON.stringify({ password: $("password").value.trim() }),
       });
       if (r.ok) {
         $("loginView").classList.add("hidden");
         $("uploadView").classList.remove("hidden");
       } else {
-        show($("loginMsg"), "err", "Contraseña incorrecta. Intenta de nuevo.");
+        // Show the server's real message: "Contraseña incorrecta"
+        // and "Demasiados intentos..." (rate limit) are different
+        // problems and the user needs to know which one they have.
+        const data = await r.json().catch(() => ({}));
+        show($("loginMsg"), "err", data.error || "No se pudo iniciar sesión. Intenta de nuevo.");
       }
     });
     // Enter key submits the login too.
