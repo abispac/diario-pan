@@ -33,7 +33,16 @@ let serverUrl = DEFAULT_SERVER_URL;
 // the app launches.
 export async function loadServerUrl() {
   const saved = await AsyncStorage.getItem(KEY_SERVER);
-  if (saved) serverUrl = saved;
+  // Migration: during the testing phase some phones saved an
+  // override pointing at the (long dead) Cloudflare tunnel. If we
+  // kept honoring it, those phones would stay broken forever - so
+  // any tunnel override is wiped and the phone returns to the
+  // official server.
+  if (saved && /trycloudflare\.com/i.test(saved)) {
+    await AsyncStorage.removeItem(KEY_SERVER);
+  } else if (saved) {
+    serverUrl = saved;
+  }
   return serverUrl;
 }
 
