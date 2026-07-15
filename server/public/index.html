@@ -92,7 +92,7 @@
       padding: 4px 10px; font-size: 12px; font-weight: 700; letter-spacing: .5px;
     }
     .player-title { font-size: 19px; font-weight: 700; color: var(--brand-dark); }
-    .player-date { font-size: 14px; color: var(--muted); text-transform: capitalize; }
+    .player-date { font-size: 14px; color: var(--muted); }
 
     /* ---------------- past videos ---------------- */
     .archive-heading {
@@ -132,7 +132,7 @@
       display: flex; align-items: center; justify-content: center; font-size: 15px;
     }
     .video-card .t { font-weight: 700; font-size: 15px; color: var(--text); }
-    .video-card .d { font-size: 13px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+    .video-card .d { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
     /* ---------------- empty / loading states ---------------- */
     .state { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 16px; }
@@ -196,9 +196,11 @@
     // "2026-07-04" -> "viernes, 4 de julio de 2026", warm and human.
     function prettyDate(iso) {
       const [y, m, d] = iso.split("-").map(Number);
-      return new Date(y, m - 1, d).toLocaleDateString("es", {
+      const s = new Date(y, m - 1, d).toLocaleDateString("es", {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
       });
+      // Capitalize only the first letter: "Martes, 14 de julio de 2026".
+      return s.charAt(0).toUpperCase() + s.slice(1);
     }
 
     // A greeting that matches the visitor's clock - small touch,

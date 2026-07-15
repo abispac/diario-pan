@@ -26,11 +26,13 @@ import { fetchVideos, streamUrl } from "../api";
 function prettyDate(isoDate) {
   if (!isoDate) return ""; // never crash over a missing date
   const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("es", {
+  const s = new Date(y, m - 1, d).toLocaleDateString("es", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
+  // Capitalize only the first letter: "Martes, 14 de julio".
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function HomeScreen({ navigation }) {
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", marginRight: 14,
   },
   cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardDate: { fontSize: 13, marginTop: 2, textTransform: "capitalize" },
+  cardDate: { fontSize: 13, marginTop: 2 },
   todayTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 8 },
   todayText: { color: "#fff", fontSize: 11, fontWeight: "800" },
 });
