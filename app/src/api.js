@@ -20,7 +20,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 //   cd ~/AppDev/diario-pan/app
 //   git add -A && git commit -m "new server url" && git push
 //   eas update --channel production --message "new server url"
-export const DEFAULT_SERVER_URL = "https://diariopan.com";
+// "www" on purpose: it has always resolved cleanly, while the bare
+// domain spent a while tangled up with the old shared-hosting DNS.
+export const DEFAULT_SERVER_URL = "https://www.diariopan.com";
 
 // The key under which an override is remembered on the phone.
 const KEY_SERVER = "dp_server_url";
@@ -33,12 +35,12 @@ let serverUrl = DEFAULT_SERVER_URL;
 // the app launches.
 export async function loadServerUrl() {
   const saved = await AsyncStorage.getItem(KEY_SERVER);
-  // Migration: during the testing phase some phones saved an
-  // override pointing at the (long dead) Cloudflare tunnel. If we
-  // kept honoring it, those phones would stay broken forever - so
-  // any tunnel override is wiped and the phone returns to the
-  // official server.
-  if (saved && /trycloudflare\.com/i.test(saved)) {
+  // Saved overrides are honored ONLY in development builds. During
+  // the testing phase some phones saved overrides (Cloudflare
+  // tunnel, a MacBook's WiFi address...) that are now dead; if
+  // production kept honoring them, those phones would stay broken
+  // forever. Store builds always use the official server.
+  if (saved && !__DEV__) {
     await AsyncStorage.removeItem(KEY_SERVER);
   } else if (saved) {
     serverUrl = saved;
