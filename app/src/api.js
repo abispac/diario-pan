@@ -93,11 +93,6 @@ export function streamUrl(videoId) {
   return `${serverUrl}/api/videos/${videoId}/stream`;
 }
 
-// Where the first-launch welcome video lives.
-export function welcomeVideoUrl() {
-  return `${serverUrl}/welcome.mp4`;
-}
-
 // Tell the server this phone's push token and preferred time.
 // Called after the welcome flow and whenever Settings change.
 export async function registerDevice({ pushToken, hour, minute, timezone }) {

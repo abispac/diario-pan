@@ -46,8 +46,8 @@ push scheduler dies when the host idles the process, and `yt-dlp` (the
 - [ ] Also set in the pm2 environment: `NODE_ENV=production` and
       `TZ=America/New_York` (or wherever the congregation is — the
       publish-date logic uses server-local time)
-- [ ] Upload the welcome video as `server/public/welcome.mp4` — the app
-      plays it on first launch; without it every new user sees an error
+- [x] ~~Welcome video~~ — removed from the app entirely; first launch now
+      goes straight to the time picker (simpler, and nothing to record)
 - [ ] Verify `contacto@diariopan.com` exists and is monitored (it's on the
       privacy + support pages; Apple checks these)
 - [ ] Fix the footer link in `server/public/index.html` — it points at bare

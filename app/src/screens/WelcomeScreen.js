@@ -1,14 +1,11 @@
 // ================================================================
 // WelcomeScreen.js - what a brand-new user sees, exactly once.
 //
-// The flow, as designed:
-//   1. The presentation video plays, explaining the app and that
-//      notifications can be set for the user's favorite hour.
-//   2. When it ends (or the user taps "Saltar"), the time picker
-//      appears: "¿A qué hora quieres tu devocional?"
-//   3. The user picks a time, we ask for notification permission,
-//      schedule everything, and land on the Home screen.
-//   Total effort for the user: watch, pick a time, done.
+// One question, that's the whole setup:
+//   "¿A qué hora quieres tu devocional?"
+// The user picks a time, we ask for notification permission,
+// schedule everything, and land on the Home screen where today's
+// video is already waiting.
 // ================================================================
 
 import React, { useContext, useState } from "react";
@@ -20,7 +17,6 @@ import {
   Platform,
   Switch,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ThemeContext } from "../../App";
 import {
@@ -28,13 +24,9 @@ import {
   setAlarmPreference,
   markWelcomeCompleted,
 } from "../notifications";
-import { welcomeVideoUrl } from "../api";
 
 export default function WelcomeScreen({ navigation }) {
   const theme = useContext(ThemeContext);
-
-  // step "video" -> step "time"
-  const [step, setStep] = useState("video");
 
   // The proposed default: 8:00am. Most people watch a devotional
   // first thing in the morning.
@@ -76,32 +68,8 @@ export default function WelcomeScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {step === "video" ? (
-        // ---------------- STEP 1: presentation video ----------------
-        <View style={styles.videoWrap}>
-          <Video
-            // The presentation video: welcome.mp4 in server/public/.
-            source={{ uri: welcomeVideoUrl() }}
-            style={styles.video}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay
-            useNativeControls
-            // The magic: when the video finishes on its own, move
-            // to the time-picking step automatically.
-            onPlaybackStatusUpdate={(status) => {
-              if (status.didJustFinish) setStep("time");
-            }}
-            // If the video can't load (no internet on first open),
-            // don't trap the user here - skip ahead.
-            onError={() => setStep("time")}
-          />
-          <TouchableOpacity onPress={() => setStep("time")} style={styles.skip}>
-            <Text style={{ color: theme.textMuted }}>Saltar ›</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        // ---------------- STEP 2: pick the time ----------------
-        <View style={styles.timeWrap}>
+      {/* ---------------- the one and only step: pick the time ---------------- */}
+      <View style={styles.timeWrap}>
           {/* Placeholder logo - swap for the church logo image */}
           <View style={[styles.logo, { backgroundColor: theme.accent }]}>
             <Text style={styles.logoEmoji}>🍞</Text>
@@ -168,16 +136,12 @@ export default function WelcomeScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  videoWrap: { flex: 1, justifyContent: "center" },
-  video: { width: "100%", aspectRatio: 16 / 9 },
-  skip: { position: "absolute", top: 60, right: 24, padding: 8 },
   timeWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
   logo: {
     width: 88, height: 88, borderRadius: 44,
