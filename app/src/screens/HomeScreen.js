@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 import { useFocusEffect } from "@react-navigation/native";
@@ -37,6 +38,8 @@ function prettyDate(isoDate) {
 
 export default function HomeScreen({ navigation }) {
   const theme = useContext(ThemeContext);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
   const [videos, setVideos] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -45,11 +48,16 @@ export default function HomeScreen({ navigation }) {
   // Handle to today's inline video player, so we can pause it
   // when the user leaves this screen.
   const heroRef = React.useRef(null);
+  const loadSequence = React.useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     // fetchVideos() returns null on network/server trouble, so we
     // can tell "no connection" apart from "nothing published yet".
     const result = await fetchVideos();
+    // A focus refresh and a pull-to-refresh can overlap. Ignore an
+    // older response if a newer request already started.
+    if (requestId !== loadSequence.current) return;
     if (result === null) {
       setOffline(true); // keep whatever list we already had
     } else {
@@ -69,6 +77,7 @@ export default function HomeScreen({ navigation }) {
       load();
       return () => {
         heroRef.current?.pauseAsync?.().catch(() => {});
+        loadSequence.current += 1;
       };
     }, [load])
   );
@@ -82,7 +91,7 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* ---------- Header: logo, title, settings gear ---------- */}
-      <View style={styles.header}>
+      <View style={[styles.header, isTablet && styles.headerTablet]}>
         <View style={[styles.logoSmall, { backgroundColor: theme.accent }]}>
           <Text style={{ fontSize: 20 }}>🍞</Text>
         </View>
@@ -106,7 +115,10 @@ export default function HomeScreen({ navigation }) {
           older devotionals scroll SIDEWAYS below it, like flipping
           through the pages of a diary. */}
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isTablet && styles.scrollContentTablet,
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -165,7 +177,11 @@ export default function HomeScreen({ navigation }) {
                   contentContainerStyle={{ paddingRight: 4, paddingVertical: 4 }}
                   renderItem={({ item }) => (
                     <TouchableOpacity
-                      style={[styles.pastCard, { backgroundColor: theme.card }]}
+                      style={[
+                        styles.pastCard,
+                        isTablet && styles.pastCardTablet,
+                        { backgroundColor: theme.card },
+                      ]}
                       onPress={() =>
                         navigation.navigate("Player", {
                           videoId: item.id,
@@ -205,6 +221,9 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center",
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
   },
+  headerTablet: { width: "100%", maxWidth: 1000, alignSelf: "center" },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  scrollContentTablet: { width: "100%", maxWidth: 1000, alignSelf: "center" },
   logoSmall: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: "center", justifyContent: "center", marginRight: 10,
@@ -228,6 +247,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
+  pastCardTablet: { width: 250, minHeight: 150 },
   playBadge: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: "center", justifyContent: "center", marginRight: 14,

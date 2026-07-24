@@ -71,24 +71,30 @@ export default function App() {
   //      "last notification response" once navigation is ready.
   const navigationRef = React.useRef(null);
   const navReady = React.useRef(false);
-  const pendingVideoId = React.useRef(null);
+  const pendingDestination = React.useRef(null);
 
-  const openVideo = (videoId) => {
-    if (!videoId) return;
+  const openNotification = (data = {}) => {
+    const safeData = data || {};
+    const destination = safeData.videoId
+      ? { screen: "Player", params: { videoId: safeData.videoId } }
+      : { screen: "Home" };
     if (navReady.current && navigationRef.current) {
-      navigationRef.current.navigate("Player", { videoId });
+      navigationRef.current.navigate(destination.screen, destination.params);
     } else {
-      pendingVideoId.current = videoId; // navigate in onReady below
+      pendingDestination.current = destination;
     }
   };
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      openVideo(response.notification.request.content.data?.videoId);
+      openNotification(response.notification.request.content.data);
     });
     // Cold start: was the app launched by tapping a notification?
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) openVideo(response.notification.request.content.data?.videoId);
+      if (response) {
+        openNotification(response.notification.request.content.data);
+        Notifications.clearLastNotificationResponseAsync().catch(() => {});
+      }
     });
     return () => sub.remove();
   }, []);
@@ -111,11 +117,12 @@ export default function App() {
         ref={navigationRef}
         onReady={() => {
           navReady.current = true;
-          if (pendingVideoId.current) {
-            navigationRef.current?.navigate("Player", {
-              videoId: pendingVideoId.current,
-            });
-            pendingVideoId.current = null;
+          if (pendingDestination.current) {
+            navigationRef.current?.navigate(
+              pendingDestination.current.screen,
+              pendingDestination.current.params
+            );
+            pendingDestination.current = null;
           }
         }}
       >

@@ -9,12 +9,15 @@
 
 import React, { useContext, useEffect, useState } from "react";
 import {
+  Alert,
+  Linking,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { TextInput, Switch } from "react-native";
@@ -25,16 +28,30 @@ import {
   setNotificationTime,
   getAlarmMode,
   setAlarmMode,
+  getReminderStatus,
+  scheduleTestNotification,
 } from "../notifications";
 import { getServerUrl, setServerUrl, DEFAULT_SERVER_URL } from "../api";
 
 export default function SettingsScreen({ navigation }) {
   const theme = useContext(ThemeContext);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
 
   const [time, setTime] = useState(null); // null until loaded
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [alarmOn, setAlarmOn] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  const refreshStatus = async () => {
+    try {
+      setReminderStatus(await getReminderStatus());
+    } catch (error) {
+      console.warn("Reminder status unavailable:", error?.message);
+    }
+  };
 
   // Load the saved notification time + alarm mode when the screen opens.
   useEffect(() => {
@@ -44,6 +61,7 @@ export default function SettingsScreen({ navigation }) {
       d.setHours(hour, minute, 0, 0);
       setTime(d);
       setAlarmOn(await getAlarmMode());
+      await refreshStatus();
     })();
   }, []);
 
@@ -51,9 +69,50 @@ export default function SettingsScreen({ navigation }) {
   // sound and maximum urgency (or back to a normal notification).
   const toggleAlarm = async (value) => {
     setAlarmOn(value);
-    await setAlarmMode(value);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
+    try {
+      const result = await setAlarmMode(value);
+      setReminderStatus(result);
+      if (!result.scheduled) showPermissionAlert();
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2000);
+    } catch (error) {
+      setAlarmOn(!value);
+      Alert.alert("No se pudo guardar", error?.message || "Inténtalo otra vez.");
+    }
+  };
+
+  const showPermissionAlert = () => {
+    Alert.alert(
+      "Recordatorios desactivados",
+      "Activa las notificaciones de Diario Pan en Ajustes del teléfono.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Abrir Ajustes", onPress: () => Linking.openSettings() },
+      ]
+    );
+  };
+
+  const testReminder = async () => {
+    setTesting(true);
+    try {
+      const result = await scheduleTestNotification();
+      setReminderStatus((current) => ({ ...current, ...result }));
+      if (!result.scheduled) {
+        showPermissionAlert();
+        return;
+      }
+      Alert.alert(
+        "Prueba programada",
+        "Sal de la app o bloquea la pantalla. El recordatorio sonará en 5 segundos."
+      );
+    } catch (error) {
+      Alert.alert(
+        "No se pudo probar",
+        error?.message || "Revisa los permisos e inténtalo otra vez."
+      );
+    } finally {
+      setTesting(false);
+    }
   };
 
   // Apply a new time: reschedules the local notification AND
@@ -67,11 +126,18 @@ export default function SettingsScreen({ navigation }) {
     setTime(newTime); // UI updates instantly
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      await setNotificationTime(newTime.getHours(), newTime.getMinutes());
-      // Tiny "Guardado ✓" confirmation that fades the anxiety of
-      // "did it save?" without needing a button.
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2000);
+      try {
+        const result = await setNotificationTime(
+          newTime.getHours(),
+          newTime.getMinutes()
+        );
+        setReminderStatus(result);
+        if (!result.scheduled) showPermissionAlert();
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 2000);
+      } catch (error) {
+        Alert.alert("No se pudo guardar", error?.message || "Inténtalo otra vez.");
+      }
     }, 800);
   };
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -79,7 +145,10 @@ export default function SettingsScreen({ navigation }) {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        isTablet && styles.contentTablet,
+      ]}
     >
       {/* ---------- header ---------- */}
       <View style={styles.header}>
@@ -138,8 +207,8 @@ export default function SettingsScreen({ navigation }) {
               ⏰ Modo alarma
             </Text>
             <Text style={[styles.cardHint, { color: theme.textMuted, marginBottom: 0 }]}>
-              Suena como despertador: campana fuerte e insistente en vez de
-              una notificación normal.
+              Usa campana y prioridad máxima. El modo Silencio o No molestar
+              del teléfono todavía puede limitar el sonido.
             </Text>
           </View>
           <Switch
@@ -147,6 +216,39 @@ export default function SettingsScreen({ navigation }) {
             onValueChange={toggleAlarm}
             trackColor={{ true: theme.accent }}
           />
+        </View>
+
+        <View style={styles.reminderStatus}>
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color:
+                  reminderStatus === null
+                    ? theme.textMuted
+                    : reminderStatus.granted && reminderStatus.scheduled
+                    ? theme.accentDark
+                    : "#a33a2b",
+              },
+            ]}
+          >
+            {reminderStatus === null
+              ? "Comprobando recordatorio..."
+              : reminderStatus.granted && reminderStatus.scheduled
+              ? "✓ Recordatorio diario programado"
+              : "⚠ El recordatorio necesita atención"}
+          </Text>
+          <TouchableOpacity
+            style={[styles.testButton, { borderColor: theme.accent }]}
+            onPress={testReminder}
+            disabled={testing}
+            accessibilityRole="button"
+            accessibilityLabel="Probar recordatorio en cinco segundos"
+          >
+            <Text style={[styles.testButtonText, { color: theme.accent }]}>
+              {testing ? "Programando..." : "Probar en 5 segundos"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -226,6 +328,7 @@ export default function SettingsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  contentTablet: { width: "100%", maxWidth: 760, alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   back: { marginRight: 12 },
   backText: { fontSize: 17, fontWeight: "600" },
@@ -261,5 +364,15 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", marginTop: 18,
     borderTopWidth: 1, borderTopColor: "#f0e8dc", paddingTop: 16,
   },
+  reminderStatus: {
+    marginTop: 18, paddingTop: 16, borderTopWidth: 1,
+    borderTopColor: "#f0e8dc",
+  },
+  statusText: { fontSize: 13, fontWeight: "700", marginBottom: 12 },
+  testButton: {
+    alignSelf: "flex-start", borderWidth: 2, borderRadius: 10,
+    paddingVertical: 10, paddingHorizontal: 16,
+  },
+  testButtonText: { fontSize: 14, fontWeight: "700" },
   about: { textAlign: "center", fontSize: 12, marginTop: 12 },
 });

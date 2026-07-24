@@ -10,12 +10,15 @@
 
 import React, { useContext, useState } from "react";
 import {
+  Alert,
+  Linking,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
   Switch,
+  useWindowDimensions,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { ThemeContext } from "../../App";
@@ -27,6 +30,8 @@ import {
 
 export default function WelcomeScreen({ navigation }) {
   const theme = useContext(ThemeContext);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
 
   // The proposed default: 8:00am. Most people watch a devotional
   // first thing in the morning.
@@ -49,16 +54,29 @@ export default function WelcomeScreen({ navigation }) {
   const confirmTime = async () => {
     setSaving(true);
     try {
-      // Mark the welcome as done FIRST. Even if scheduling below
-      // fails for any reason (permission denied, flaky network),
-      // the user must never be asked to set up again - they can
-      // always adjust the time later in Ajustes.
-      await markWelcomeCompleted();
       await setAlarmPreference(alarmOn); // must be saved BEFORE scheduling
-      await setNotificationTime(time.getHours(), time.getMinutes());
+      const result = await setNotificationTime(
+        time.getHours(),
+        time.getMinutes()
+      );
+      await markWelcomeCompleted();
+
+      if (!result.scheduled) {
+        Alert.alert(
+          "Activa los recordatorios",
+          "La hora quedó guardada, pero Diario Pan no tiene permiso para avisarte. Puedes activarlo en Ajustes del teléfono.",
+          [
+            { text: "Ahora no", style: "cancel" },
+            { text: "Abrir Ajustes", onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
     } catch (err) {
-      // Log and move on - Home works fine without notifications.
       console.warn("Welcome setup issue:", err?.message);
+      Alert.alert(
+        "No se pudo programar el recordatorio",
+        "Puedes intentarlo de nuevo en Ajustes dentro de Diario Pan."
+      );
     } finally {
       setSaving(false);
       // Reset navigation so "back" can't return to the welcome.
@@ -69,7 +87,12 @@ export default function WelcomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* ---------------- the one and only step: pick the time ---------------- */}
-      <View style={styles.timeWrap}>
+      <View
+        style={[
+          styles.timeWrap,
+          isTablet && styles.timeWrapTablet,
+        ]}
+      >
           {/* Placeholder logo - swap for the church logo image */}
           <View style={[styles.logo, { backgroundColor: theme.accent }]}>
             <Text style={styles.logoEmoji}>🍞</Text>
@@ -143,6 +166,7 @@ export default function WelcomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   timeWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  timeWrapTablet: { width: "100%", maxWidth: 620, alignSelf: "center" },
   logo: {
     width: 88, height: 88, borderRadius: 44,
     alignItems: "center", justifyContent: "center", marginBottom: 24,

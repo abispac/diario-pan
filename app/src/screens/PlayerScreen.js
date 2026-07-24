@@ -20,6 +20,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 import { ThemeContext } from "../../App";
@@ -27,9 +28,12 @@ import { streamUrl } from "../api";
 
 export default function PlayerScreen({ route, navigation }) {
   const theme = useContext(ThemeContext);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 700;
   const { videoId, title } = route.params || {};
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
+  const [retryKey, setRetryKey] = React.useState(0);
   const videoRef = useRef(null);
 
   // A Player with no video to play (bad deep link, malformed
@@ -53,7 +57,10 @@ export default function PlayerScreen({ route, navigation }) {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        isTablet && styles.contentTablet,
+      ]}
     >
       {/* Back link, in the app's accent color */}
       <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
@@ -76,7 +83,11 @@ export default function PlayerScreen({ route, navigation }) {
           </Text>
           <TouchableOpacity
             style={[styles.retry, { backgroundColor: theme.accent }]}
-            onPress={() => { setError(false); setLoading(true); }}
+            onPress={() => {
+              setError(false);
+              setLoading(true);
+              setRetryKey((value) => value + 1);
+            }}
           >
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
@@ -94,6 +105,7 @@ export default function PlayerScreen({ route, navigation }) {
               />
             )}
             <Video
+              key={`${videoId}-${retryKey}`}
               ref={videoRef}
               source={{ uri: streamUrl(videoId) }}
               style={styles.video}
@@ -121,6 +133,7 @@ const styles = StyleSheet.create({
     padding: 20, paddingTop: 56, paddingBottom: 48,
     alignItems: "center",
   },
+  contentTablet: { width: "100%", maxWidth: 960, alignSelf: "center" },
   back: { alignSelf: "flex-start", padding: 4, marginBottom: 8 },
   backText: { fontSize: 17, fontWeight: "600" },
   emblem: {

@@ -50,10 +50,23 @@ db.exec(`
     notify_hour   INTEGER NOT NULL DEFAULT 8,   -- 0-23, hour the user wants the alert
     notify_minute INTEGER NOT NULL DEFAULT 0,   -- 0-59
     timezone      TEXT NOT NULL DEFAULT 'America/New_York',
+    alarm_mode    INTEGER NOT NULL DEFAULT 0,
+    last_notified_date TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// Existing installations already have the devices table. SQLite's
+// CREATE TABLE IF NOT EXISTS does not add new columns, so apply this
+// small forward-only migration once.
+const deviceColumns = db.pragma("table_info(devices)");
+if (!deviceColumns.some((column) => column.name === "alarm_mode")) {
+  db.exec(`ALTER TABLE devices ADD COLUMN alarm_mode INTEGER NOT NULL DEFAULT 0`);
+}
+if (!deviceColumns.some((column) => column.name === "last_notified_date")) {
+  db.exec(`ALTER TABLE devices ADD COLUMN last_notified_date TEXT`);
+}
 
 // ----------------------------------------------------------------
 // Video queries
@@ -107,7 +120,8 @@ export function listUnnotifiedPublishedVideos() {
     .prepare(
       `SELECT * FROM videos
         WHERE notified = 0
-          AND publish_date <= date('now', 'localtime')`
+          AND publish_date <= date('now', 'localtime')
+        ORDER BY publish_date DESC, id DESC`
     )
     .all();
 }
@@ -122,20 +136,43 @@ export function markVideoNotified(id) {
 
 // Register a phone, or update its preferred time if we already
 // know it. "UPSERT" keeps this a single, race-free statement.
-export function upsertDevice({ pushToken, notifyHour, notifyMinute, timezone }) {
+export function upsertDevice({
+  pushToken,
+  notifyHour,
+  notifyMinute,
+  timezone,
+  alarmMode,
+}) {
   db.prepare(
-    `INSERT INTO devices (push_token, notify_hour, notify_minute, timezone)
-     VALUES (@pushToken, @notifyHour, @notifyMinute, @timezone)
+    `INSERT INTO devices
+       (push_token, notify_hour, notify_minute, timezone, alarm_mode)
+     VALUES
+       (@pushToken, @notifyHour, @notifyMinute, @timezone, @alarmMode)
      ON CONFLICT(push_token) DO UPDATE SET
        notify_hour   = @notifyHour,
        notify_minute = @notifyMinute,
        timezone      = @timezone,
+       alarm_mode    = @alarmMode,
        updated_at    = datetime('now')`
-  ).run({ pushToken, notifyHour, notifyMinute, timezone });
+  ).run({
+    pushToken,
+    notifyHour,
+    notifyMinute,
+    timezone,
+    alarmMode: alarmMode ? 1 : 0,
+  });
 }
 
 export function listDevices() {
   return db.prepare(`SELECT * FROM devices`).all();
+}
+
+export function markDeviceNotified(pushToken, localDate) {
+  db.prepare(
+    `UPDATE devices
+        SET last_notified_date = ?, updated_at = datetime('now')
+      WHERE push_token = ?`
+  ).run(localDate, pushToken);
 }
 
 // If Expo tells us a token is dead (app uninstalled), forget it.

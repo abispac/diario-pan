@@ -2,8 +2,8 @@
   "expo": {
     "name": "Diario Pan",
     "slug": "diario-pan",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "1.1.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -26,12 +26,19 @@
     },
     "android": {
       "package": "com.diariopan.app",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f5ede3"
       },
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM"
       ]
     },
     "plugins": [
@@ -47,9 +54,19 @@
       [
         "expo-build-properties",
         {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          },
           "ios": {
             "deploymentTarget": "15.1"
           }
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
         }
       ],
       "@react-native-community/datetimepicker",

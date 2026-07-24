@@ -95,9 +95,15 @@ export function streamUrl(videoId) {
 
 // Tell the server this phone's push token and preferred time.
 // Called after the welcome flow and whenever Settings change.
-export async function registerDevice({ pushToken, hour, minute, timezone }) {
+export async function registerDevice({
+  pushToken,
+  hour,
+  minute,
+  timezone,
+  alarmMode,
+}) {
   try {
-    await fetch(`${serverUrl}/api/devices`, {
+    const res = await fetch(`${serverUrl}/api/devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -105,10 +111,13 @@ export async function registerDevice({ pushToken, hour, minute, timezone }) {
         notifyHour: hour,
         notifyMinute: minute,
         timezone,
+        alarmMode: Boolean(alarmMode),
       }),
     });
+    return res.ok;
   } catch {
     // Offline right now? No problem - notifications.js re-registers
     // on the next app launch anyway.
+    return false;
   }
 }

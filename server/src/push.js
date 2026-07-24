@@ -27,6 +27,7 @@ import fs from "node:fs";
 import db, {
   listDevices,
   deleteDevice,
+  markDeviceNotified,
   listUnnotifiedPublishedVideos,
   markVideoNotified,
   listAllVideos,
@@ -35,12 +36,10 @@ import { pruneOldLocalCopies, hasLocalCopy, localPathFor } from "./storage.js";
 import { uploadVideo } from "./drive.js";
 
 const expo = new Expo();
+const NORMAL_CHANNEL_ID = "devocional-v2";
+const ALARM_CHANNEL_ID = "devocional-alarma-v2";
 
-// Per-device memory of "already notified today", so a device is
-// never pinged twice for the same day even across multiple videos.
-// Lives in RAM: if the server restarts mid-day, worst case someone
-// gets a duplicate notification once. Acceptable trade-off for
-// simplicity.
+// Fast in-memory mirror of the durable last_notified_date database field.
 const notifiedToday = new Map(); // pushToken -> "YYYY-MM-DD"
 
 // What time is it right now on a phone in the given timezone?
@@ -95,7 +94,12 @@ async function tick() {
     const now = nowInTimezone(device.timezone);
 
     // Skip if we already pinged this phone today.
-    if (notifiedToday.get(device.push_token) === now.dateStr) continue;
+    if (
+      device.last_notified_date === now.dateStr ||
+      notifiedToday.get(device.push_token) === now.dateStr
+    ) {
+      continue;
+    }
 
     // Notify when the user's chosen moment has arrived (or already
     // passed - covers late uploads).
@@ -109,11 +113,12 @@ async function tick() {
 
     messages.push({
       to: device.push_token,
-      sound: "default", // plays the phone's notification sound - the "alarm"
+      sound: device.alarm_mode ? "campana.wav" : "default",
+      channelId: device.alarm_mode ? ALARM_CHANNEL_ID : NORMAL_CHANNEL_ID,
       title: "🍞 Diario Pan",
       body: "Tu devocional de hoy está listo. ¡Toca para verlo!",
       // Open straight to the NEWEST video (there is usually only one).
-      data: { videoId: newVideos[newVideos.length - 1].id },
+      data: { videoId: newVideos[0].id, kind: "new-video" },
       priority: "high",
       _dateStr: now.dateStr, // internal bookkeeping, stripped below
     });
@@ -134,8 +139,15 @@ async function tick() {
           ticket.details?.error === "DeviceNotRegistered"
         ) {
           deleteDevice(chunk[i].to);
+        } else if (ticket.status === "ok") {
+          const localDate = dateByToken.get(chunk[i].to);
+          notifiedToday.set(chunk[i].to, localDate);
+          markDeviceNotified(chunk[i].to, localDate);
         } else {
-          notifiedToday.set(chunk[i].to, dateByToken.get(chunk[i].to));
+          console.error(
+            "[push] Expo rejected a notification:",
+            ticket.message || ticket.details?.error || "unknown error"
+          );
         }
       });
     } catch (err) {
@@ -151,7 +163,9 @@ async function tick() {
   const everyoneServed =
     devices.length > 0 &&
     devices.every(
-      (d) => notifiedToday.get(d.push_token) === nowInTimezone(d.timezone).dateStr
+      (d) =>
+        d.last_notified_date === nowInTimezone(d.timezone).dateStr ||
+        notifiedToday.get(d.push_token) === nowInTimezone(d.timezone).dateStr
     );
   if (everyoneServed) {
     for (const v of newVideos) markVideoNotified(v.id);

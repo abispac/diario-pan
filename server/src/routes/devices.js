@@ -15,9 +15,10 @@ import { upsertDevice, deleteDevice } from "../db.js";
 const router = Router();
 
 // POST /api/devices
-// Body: { pushToken, notifyHour, notifyMinute, timezone }
+// Body: { pushToken, notifyHour, notifyMinute, timezone, alarmMode }
 router.post("/", (req, res) => {
-  const { pushToken, notifyHour, notifyMinute, timezone } = req.body || {};
+  const { pushToken, notifyHour, notifyMinute, timezone, alarmMode } =
+    req.body || {};
 
   // Basic sanity checks - reject garbage before it hits the DB.
   // This endpoint is public (phones call it with no password), so
@@ -45,6 +46,7 @@ router.post("/", (req, res) => {
     // If the app didn't send a timezone, assume US Eastern -
     // adjust the default to wherever most of the congregation is.
     timezone: isValidTimezone(timezone) ? timezone : "America/New_York",
+    alarmMode: alarmMode === true || alarmMode === 1,
   });
   res.json({ ok: true });
 });
