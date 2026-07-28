@@ -13,6 +13,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.diariopan.app",
+      "buildNumber": "6",
       "supportsTablet": true,
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
