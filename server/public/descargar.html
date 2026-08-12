@@ -63,12 +63,12 @@
     <div class="qr-card">
       <h2>📱 iPhone</h2>
       <div class="qr-box" id="qr-ios"></div>
-      <a id="link-ios" href="#">Abrir en App Store</a>
+      <a id="link-ios" href="https://apps.apple.com/app/diario-pan/id6787484124" target="_blank" rel="noopener">Abrir en App Store</a>
     </div>
     <div class="qr-card">
       <h2>🤖 Android</h2>
       <div class="qr-box" id="qr-android"></div>
-      <a id="link-android" href="#">Abrir en Google Play</a>
+      <a id="link-android" href="https://play.google.com/store/apps/details?id=com.diariopan.app" target="_blank" rel="noopener">Abrir en Google Play</a>
     </div>
   </div>
 
@@ -76,9 +76,15 @@
 
   <script>
     // Ask the server for the current store links and draw the QRs.
+    const fallbackLinks = {
+      ios: "https://apps.apple.com/app/diario-pan/id6787484124",
+      android: "https://play.google.com/store/apps/details?id=com.diariopan.app",
+    };
+
     fetch("/api/store-links")
       .then((r) => r.json())
-      .then(({ ios, android }) => {
+      .catch(() => fallbackLinks)
+      .then(({ ios = fallbackLinks.ios, android = fallbackLinks.android }) => {
         new QRCode(document.getElementById("qr-ios"), { text: ios, width: 180, height: 180 });
         new QRCode(document.getElementById("qr-android"), { text: android, width: 180, height: 180 });
         document.getElementById("link-ios").href = ios;

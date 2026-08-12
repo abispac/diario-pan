@@ -52,6 +52,6 @@ export const config = {
       "https://play.google.com/store/apps/details?id=com.diariopan.app",
     ios:
       process.env.IOS_STORE_URL ||
-      "https://apps.apple.com/app/diario-pan/id0000000000",
+      "https://apps.apple.com/app/diario-pan/id6787484124",
   },
 };

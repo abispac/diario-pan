@@ -59,6 +59,19 @@
       white-space: nowrap;
     }
     .app-link:hover { background: var(--brand-dark); }
+    .store-links {
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+      margin: 0 auto 28px;
+    }
+    .store-button {
+      display: inline-flex; align-items: center; gap: 10px;
+      min-width: 210px; padding: 12px 18px; border-radius: 12px;
+      background: #17120e; color: #fff; text-decoration: none;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-weight: 700; box-shadow: 0 4px 14px rgba(78, 45, 16, .16);
+    }
+    .store-button:hover { background: var(--brand-dark); transform: translateY(-1px); }
+    .store-button span { font-size: 24px; }
 
     /* ---------------- main layout ---------------- */
     main {
@@ -160,6 +173,15 @@
   <main>
     <div class="greeting">
       <h1 id="greeting">Bienvenido</h1>
+    </div>
+
+    <div class="store-links ui" aria-label="Descargar Diario Pan">
+      <a class="store-button" href="https://apps.apple.com/app/diario-pan/id6787484124" target="_blank" rel="noopener">
+        <span aria-hidden="true"></span> Descargar para iPhone
+      </a>
+      <a class="store-button" href="https://play.google.com/store/apps/details?id=com.diariopan.app" target="_blank" rel="noopener">
+        <span aria-hidden="true">▶</span> Descargar para Android
+      </a>
     </div>
 
     <!-- ============ Today's (or selected) video ============ -->

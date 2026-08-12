@@ -81,7 +81,7 @@ LOCAL_KEEP_DAYS=90
 
 # Fill in after the apps are live in the stores:
 ANDROID_STORE_URL=https://play.google.com/store/apps/details?id=com.diariopan.app
-IOS_STORE_URL=https://apps.apple.com/app/diario-pan/id0000000000
+IOS_STORE_URL=https://apps.apple.com/app/diario-pan/id6787484124
 EOF
   chmod 600 .env
   NEW_ENV_CREATED=yes
