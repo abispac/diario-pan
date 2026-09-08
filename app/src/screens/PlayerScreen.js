@@ -16,6 +16,7 @@ import React, { useContext, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -25,6 +26,7 @@ import {
 import { Video, ResizeMode } from "expo-av";
 import { ThemeContext } from "../../App";
 import { streamUrl } from "../api";
+import { DISPLAY_FONT } from "../theme";
 
 export default function PlayerScreen({ route, navigation }) {
   const theme = useContext(ThemeContext);
@@ -34,6 +36,9 @@ export default function PlayerScreen({ route, navigation }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
   const [retryKey, setRetryKey] = React.useState(0);
+  // The devotionals are filmed vertically, so start portrait and
+  // correct to the real shape once the video reports its size.
+  const [aspect, setAspect] = React.useState(9 / 16);
   const videoRef = useRef(null);
 
   // A Player with no video to play (bad deep link, malformed
@@ -68,10 +73,13 @@ export default function PlayerScreen({ route, navigation }) {
       </TouchableOpacity>
 
       {/* Small bread emblem above the video - a gentle touch of
-          identity while the first bytes arrive. */}
-      <View style={[styles.emblem, { backgroundColor: theme.accent }]}>
-        <Text style={{ fontSize: 24 }}>🍞</Text>
-      </View>
+          identity while the first bytes arrive. Same mark as the
+          app icon and the website header. */}
+      <Image
+        source={require("../../assets/icon.png")}
+        style={styles.emblem}
+        accessibilityLabel="Diario Pan"
+      />
 
       {error ? (
         // Both server sources failed, or no internet. Say so kindly,
@@ -108,11 +116,17 @@ export default function PlayerScreen({ route, navigation }) {
               key={`${videoId}-${retryKey}`}
               ref={videoRef}
               source={{ uri: streamUrl(videoId) }}
-              style={styles.video}
+              style={[styles.video, { aspectRatio: aspect }]}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay          // start immediately - that's why they tapped
               useNativeControls   // familiar play/pause/seek controls
-              onReadyForDisplay={() => setLoading(false)}
+              onReadyForDisplay={(event) => {
+                setLoading(false);
+                const size = event?.naturalSize;
+                if (size?.width && size?.height) {
+                  setAspect(size.width / size.height);
+                }
+              }}
               onError={() => { setLoading(false); setError(true); }}
             />
           </View>
@@ -136,22 +150,20 @@ const styles = StyleSheet.create({
   contentTablet: { width: "100%", maxWidth: 960, alignSelf: "center" },
   back: { alignSelf: "flex-start", padding: 4, marginBottom: 8 },
   backText: { fontSize: 17, fontWeight: "600" },
-  emblem: {
-    width: 48, height: 48, borderRadius: 24,
-    alignItems: "center", justifyContent: "center", marginBottom: 16,
-  },
+  emblem: { width: 48, height: 48, borderRadius: 24, marginBottom: 16 },
   card: {
     width: "100%", borderRadius: 20, overflow: "hidden",
     shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   videoFrame: { backgroundColor: "#1d1712" /* warm near-black, not pure black */ },
-  video: { width: "100%", aspectRatio: 16 / 9 },
+  video: { width: "100%" },
   spinner: {
     position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 5,
   },
   title: {
-    fontSize: 17, fontWeight: "700", textAlign: "center",
+    fontFamily: DISPLAY_FONT,
+    fontSize: 18, fontWeight: "600", textAlign: "center", lineHeight: 25,
     paddingVertical: 16, paddingHorizontal: 20,
   },
   errorWrap: { alignItems: "center", padding: 32 },

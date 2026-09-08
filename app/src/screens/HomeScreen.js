@@ -1,15 +1,23 @@
 // ================================================================
-// HomeScreen.js - the main screen. Today's devotional sits at the
-// top as a real, playable video (press play right there - no
-// screen change). The older devotionals are listed below it;
-// tapping one of those opens the full-screen player. Gear icon
-// (top right) opens Settings. Pull down to refresh.
+// HomeScreen.js - the main screen, laid out like diariopan.com so
+// the app and the website feel like one thing.
+//
+//   * a greeting that matches the reader's clock
+//   * today's devotional, playable right here
+//   * the older devotionals, scrolling sideways
+//   * "Más de Diario Pan": the reading plan, the podcast and the
+//     church's socials - the links that used to live on the
+//     Linktree. No app-download links: you are already in the app.
+//
+// Gear icon (top right) opens Settings. Pull down to refresh.
 // ================================================================
 
 import React, { useCallback, useContext, useState } from "react";
 import {
   View,
   Text,
+  Image,
+  Linking,
   FlatList,
   ScrollView,
   TouchableOpacity,
@@ -21,8 +29,10 @@ import { Video, ResizeMode } from "expo-av";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../../App";
 import { fetchVideos, streamUrl } from "../api";
+import { DISPLAY_FONT } from "../theme";
+import { LINKS, READING_PLAN } from "../links";
 
-// Turn "2026-07-04" into "viernes, 4 de julio" - warm and human,
+// Turn "2026-07-04" into "Viernes, 4 de julio" - warm and human,
 // the way you'd say it out loud.
 function prettyDate(isoDate) {
   if (!isoDate) return ""; // never crash over a missing date
@@ -32,18 +42,39 @@ function prettyDate(isoDate) {
     day: "numeric",
     month: "long",
   });
-  // Capitalize only the first letter: "Martes, 14 de julio".
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Buenos días";
+  if (h < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
+
+// The three score marks off the loaf, reused as a section rule -
+// the same divider the website uses.
+function SectionHeading({ theme, children }) {
+  return (
+    <View style={styles.heading}>
+      <Text style={[styles.marks, { color: theme.accent }]}>///</Text>
+      <Text style={[styles.headingText, { color: theme.text }]}>{children}</Text>
+      <View style={[styles.headingLine, { backgroundColor: theme.rule }]} />
+    </View>
+  );
 }
 
 export default function HomeScreen({ navigation }) {
   const theme = useContext(ThemeContext);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isTablet = width >= 700;
   const [videos, setVideos] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState(false);
+  // The devotionals are filmed vertically, so start portrait and
+  // correct to the real shape once the video reports its size.
+  const [heroAspect, setHeroAspect] = useState(9 / 16);
 
   // Handle to today's inline video player, so we can pause it
   // when the user leaves this screen.
@@ -88,18 +119,29 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  // Open an outside link. If the phone has nothing that can open
+  // it, fail quietly rather than crashing the screen.
+  const open = (url) => {
+    Linking.openURL(url).catch(() => {});
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* ---------- Header: logo, title, settings gear ---------- */}
-      <View style={[styles.header, isTablet && styles.headerTablet]}>
-        <View style={[styles.logoSmall, { backgroundColor: theme.accent }]}>
-          <Text style={{ fontSize: 20 }}>🍞</Text>
+      {/* ---------- Header: the loaf, the wordmark, settings ---------- */}
+      <View style={[styles.header, isTablet && styles.constrained]}>
+        <Image
+          source={require("../../assets/icon.png")}
+          style={styles.logo}
+          accessibilityLabel="Diario Pan"
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.wordmark, { color: theme.text }]}>
+            DIARIO PAN
+          </Text>
+          <Text style={[styles.tagline, { color: theme.textMuted }]}>
+            Comunidad Olivo
+          </Text>
         </View>
-        <Text style={[styles.headerTitle, { color: theme.accentDark }]}>
-          Diario Pan
-        </Text>
-        {/* The settings icon requested in the design - opens the
-            screen where time and colors can be changed. */}
         <TouchableOpacity
           onPress={() => navigation.navigate("Settings")}
           style={styles.gear}
@@ -109,20 +151,27 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ---------- Today's video + the older ones ----------
-          The newest video (videos[0]) is rendered as a playable
-          card, so it plays RIGHT HERE on the main screen. The
-          older devotionals scroll SIDEWAYS below it, like flipping
-          through the pages of a diary. */}
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet,
+          isTablet && styles.constrained,
         ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* ---------- Today ---------- */}
+        {videos.length > 0 && (
+          <View style={styles.greetingWrap}>
+            <Text style={[styles.greeting, { color: theme.accentDark }]}>
+              {greeting()}
+            </Text>
+            <Text style={[styles.greetingSub, { color: theme.textMuted }]}>
+              Tres minutos con la Palabra. Sin anuncios, nunca.
+            </Text>
+          </View>
+        )}
+
         {/* Friendly empty state instead of a blank void. */}
         {loaded && videos.length === 0 && (
           <Text style={[styles.empty, { color: theme.textMuted }]}>
@@ -135,25 +184,44 @@ export default function HomeScreen({ navigation }) {
         {videos.length > 0 && (
           <View>
             {/* ----- Today's devotional, playable in place ----- */}
-            <View style={[styles.heroCard, { backgroundColor: theme.card }]}>
+            <View
+              style={[
+                styles.heroCard,
+                { backgroundColor: theme.card, borderColor: theme.rule },
+              ]}
+            >
               <Video
                 ref={heroRef}
                 // key forces a fresh player when the day's video
                 // changes (e.g. after a pull-to-refresh at midnight)
                 key={videos[0].id}
                 source={{ uri: streamUrl(videos[0].id) }}
-                style={styles.heroVideo}
+                style={[
+                  styles.heroVideo,
+                  { aspectRatio: heroAspect, maxHeight: height * 0.6 },
+                ]}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls // play/pause/seek right here
+                onReadyForDisplay={(event) => {
+                  const size = event?.naturalSize;
+                  if (size?.width && size?.height) {
+                    setHeroAspect(size.width / size.height);
+                  }
+                }}
                 // NOT shouldPlay: it waits politely until the
                 // user presses play.
               />
               <View style={styles.heroMeta}>
                 <View style={[styles.todayTag, { backgroundColor: theme.accent }]}>
-                  <Text style={styles.todayText}>HOY</Text>
+                  <Text style={[styles.todayText, { color: theme.onAccent }]}>
+                    HOY
+                  </Text>
                 </View>
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={2}>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text
+                    style={[styles.heroTitle, { color: theme.text }]}
+                    numberOfLines={3}
+                  >
                     {videos[0].title}
                   </Text>
                   <Text style={[styles.cardDate, { color: theme.textMuted }]}>
@@ -166,9 +234,9 @@ export default function HomeScreen({ navigation }) {
             {/* ----- Older devotionals: horizontal row ----- */}
             {videos.length > 1 && (
               <View>
-                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+                <SectionHeading theme={theme}>
                   Devocionales anteriores
-                </Text>
+                </SectionHeading>
                 <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -180,7 +248,7 @@ export default function HomeScreen({ navigation }) {
                       style={[
                         styles.pastCard,
                         isTablet && styles.pastCardTablet,
-                        { backgroundColor: theme.card },
+                        { backgroundColor: theme.card, borderColor: theme.rule },
                       ]}
                       onPress={() =>
                         navigation.navigate("Player", {
@@ -191,8 +259,13 @@ export default function HomeScreen({ navigation }) {
                       activeOpacity={0.7}
                     >
                       {/* Play badge - these open the full player */}
-                      <View style={[styles.playBadge, { backgroundColor: theme.accent }]}>
-                        <Text style={{ color: "#fff", fontSize: 18 }}>▶</Text>
+                      <View
+                        style={[
+                          styles.playBadge,
+                          { backgroundColor: theme.background, borderColor: theme.rule },
+                        ]}
+                      >
+                        <Text style={{ color: theme.accent, fontSize: 15 }}>▶</Text>
                       </View>
                       <Text
                         style={[styles.cardTitle, { color: theme.text, marginTop: 10 }]}
@@ -210,6 +283,65 @@ export default function HomeScreen({ navigation }) {
             )}
           </View>
         )}
+
+        {/* ---------- Más de Diario Pan ----------
+            The same links the website shows, so nobody has to hunt
+            for the reading plan or the podcast. */}
+        <SectionHeading theme={theme}>Más de Diario Pan</SectionHeading>
+
+        <TouchableOpacity
+          style={[styles.feature, { backgroundColor: theme.accent }]}
+          onPress={() => open(READING_PLAN.url)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.featureKicker, { color: theme.onAccent }]}>
+            DESCARGA E IMPRIME
+          </Text>
+          <Text style={[styles.featureTitle, { color: theme.onAccent }]}>
+            {READING_PLAN.title}
+          </Text>
+          <Text style={[styles.featureBody, { color: theme.onAccent }]}>
+            {READING_PLAN.subtitle}
+          </Text>
+        </TouchableOpacity>
+
+        {LINKS.map((link) => (
+          <TouchableOpacity
+            key={link.key}
+            style={[
+              styles.link,
+              { backgroundColor: theme.card, borderColor: theme.rule },
+            ]}
+            onPress={() => open(link.url)}
+            activeOpacity={0.7}
+            accessibilityRole="link"
+            accessibilityLabel={link.title}
+          >
+            <View
+              style={[
+                styles.linkBadge,
+                { backgroundColor: theme.background, borderColor: theme.rule },
+              ]}
+            >
+              <Text style={[styles.linkGlyph, { color: theme.accent }]}>
+                {link.glyph}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: theme.text }]}>
+                {link.title}
+              </Text>
+              <Text style={[styles.linkSub, { color: theme.textMuted }]}>
+                {link.subtitle}
+              </Text>
+            </View>
+            <Text style={[styles.linkGo, { color: theme.textMuted }]}>›</Text>
+          </TouchableOpacity>
+        ))}
+
+        <Text style={[styles.footer, { color: theme.textMuted }]}>
+          Diario Pan · Comunidad Olivo
+        </Text>
       </ScrollView>
     </View>
   );
@@ -221,39 +353,76 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center",
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
   },
-  headerTablet: { width: "100%", maxWidth: 1000, alignSelf: "center" },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  scrollContentTablet: { width: "100%", maxWidth: 1000, alignSelf: "center" },
-  logoSmall: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: "center", justifyContent: "center", marginRight: 10,
-  },
-  headerTitle: { fontSize: 24, fontWeight: "800", flex: 1 },
+  constrained: { width: "100%", maxWidth: 1000, alignSelf: "center" },
+  scrollContent: { padding: 16, paddingBottom: 48 },
+
+  logo: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
+  wordmark: { fontSize: 15, fontWeight: "700", letterSpacing: 3.4 },
+  tagline: { fontSize: 12.5, marginTop: 2 },
   gear: { padding: 6 },
+
+  greetingWrap: { alignItems: "center", marginTop: 6, marginBottom: 18 },
+  greeting: { fontFamily: DISPLAY_FONT, fontSize: 30, fontWeight: "600" },
+  greetingSub: {
+    fontFamily: DISPLAY_FONT, fontStyle: "italic",
+    fontSize: 14.5, marginTop: 6, textAlign: "center",
+  },
+
   empty: { textAlign: "center", marginTop: 80, fontSize: 15, lineHeight: 24 },
+
   heroCard: {
-    borderRadius: 16, overflow: "hidden", marginBottom: 8,
+    borderRadius: 18, overflow: "hidden", marginBottom: 8, borderWidth: 1,
     shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
-  heroVideo: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
-  heroMeta: { flexDirection: "row", alignItems: "center", padding: 14 },
-  sectionLabel: {
-    fontSize: 13, fontWeight: "700", textTransform: "uppercase",
-    letterSpacing: 0.5, marginTop: 16, marginBottom: 10, marginLeft: 4,
+  heroVideo: { width: "100%", backgroundColor: "#000" },
+  heroMeta: { flexDirection: "row", alignItems: "center", padding: 16 },
+  heroTitle: { fontFamily: DISPLAY_FONT, fontSize: 17, fontWeight: "600", lineHeight: 23 },
+  todayTag: { borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 },
+  todayText: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+
+  heading: {
+    flexDirection: "row", alignItems: "center",
+    marginTop: 30, marginBottom: 14,
   },
+  marks: { fontSize: 17, fontWeight: "800", opacity: 0.55, marginRight: 10 },
+  headingText: { fontFamily: DISPLAY_FONT, fontSize: 20, fontWeight: "600" },
+  headingLine: { flex: 1, height: 1, marginLeft: 12 },
+
   pastCard: {
-    width: 190, borderRadius: 14, padding: 14, marginRight: 12,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8,
+    width: 190, borderRadius: 14, padding: 14, marginRight: 12, borderWidth: 1,
+    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
   pastCardTablet: { width: 250, minHeight: 150 },
   playBadge: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 38, height: 38, borderRadius: 19, borderWidth: 1,
+    alignItems: "center", justifyContent: "center",
+  },
+  cardTitle: { fontSize: 15.5, fontWeight: "600", lineHeight: 20 },
+  cardDate: { fontSize: 13, marginTop: 3 },
+
+  feature: {
+    borderRadius: 16, padding: 22, marginBottom: 12,
+    shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 }, elevation: 3,
+  },
+  featureKicker: { fontSize: 11, fontWeight: "700", letterSpacing: 1.6, opacity: 0.75 },
+  featureTitle: { fontFamily: DISPLAY_FONT, fontSize: 24, fontWeight: "600", marginTop: 4 },
+  featureBody: { fontSize: 14.5, lineHeight: 21, marginTop: 7, opacity: 0.85 },
+
+  link: {
+    flexDirection: "row", alignItems: "center",
+    borderRadius: 13, borderWidth: 1, padding: 15, marginBottom: 10,
+  },
+  linkBadge: {
+    width: 40, height: 40, borderRadius: 20, borderWidth: 1,
     alignItems: "center", justifyContent: "center", marginRight: 14,
   },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardDate: { fontSize: 13, marginTop: 2 },
-  todayTag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 8 },
-  todayText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  linkGlyph: { fontSize: 17, fontWeight: "700" },
+  linkTitle: { fontSize: 16, fontWeight: "600" },
+  linkSub: { fontSize: 13.5, marginTop: 1 },
+  linkGo: { fontSize: 22, marginLeft: 8 },
+
+  footer: { textAlign: "center", fontSize: 13, marginTop: 30 },
 });

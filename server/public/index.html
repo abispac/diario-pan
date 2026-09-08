@@ -117,8 +117,13 @@
       border-radius: 18px; overflow: hidden;
       box-shadow: 0 10px 40px var(--shadow); margin-top: 26px;
     }
+    /* The devotionals are filmed vertically (phone/reel format), so the
+       player defaults to a portrait frame and re-sizes itself to the real
+       ratio once the video reports its dimensions. max-height keeps a tall
+       video from pushing the rest of the page off the screen. */
     .player-card video {
-      width: 100%; aspect-ratio: 16 / 9; display: block; background: #000;
+      width: 100%; display: block; background: #000;
+      aspect-ratio: 9 / 16; max-height: 74vh; object-fit: contain;
     }
     .player-meta { display: flex; align-items: center; gap: 14px; padding: 18px 22px; flex-wrap: wrap; }
     .badge {
@@ -405,6 +410,15 @@
 
   var videos = [];
   var currentId = null;
+
+  // Match the frame to whatever ratio the video actually is, so a
+  // landscape upload is not letterboxed inside a portrait box.
+  $("player").addEventListener("loadedmetadata", function () {
+    var v = $("player");
+    if (v.videoWidth && v.videoHeight) {
+      v.style.aspectRatio = v.videoWidth + " / " + v.videoHeight;
+    }
+  });
 
   function select(video, autoplay) {
     currentId = video.id;
