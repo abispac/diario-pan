@@ -167,7 +167,7 @@ export default function HomeScreen({ navigation }) {
               {greeting()}
             </Text>
             <Text style={[styles.greetingSub, { color: theme.textMuted }]}>
-              Tres minutos con la Palabra. Sin anuncios, nunca.
+              Diario Pan es un devocional diario que te ayuda a crecer con la Palabra de Dios.
             </Text>
           </View>
         )}
@@ -284,10 +284,11 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* ---------- Más de Diario Pan ----------
-            The same links the website shows, so nobody has to hunt
-            for the reading plan or the podcast. */}
-        <SectionHeading theme={theme}>Más de Diario Pan</SectionHeading>
+        {/* ---------- The links ----------
+            The same set the website shows, so nobody has to hunt for
+            the reading plan or the podcast. No heading: the cards
+            announce themselves. */}
+        <View style={[styles.divider, { backgroundColor: theme.rule }]} />
 
         <TouchableOpacity
           style={[styles.feature, { backgroundColor: theme.accent }]}
@@ -317,16 +318,11 @@ export default function HomeScreen({ navigation }) {
             accessibilityRole="link"
             accessibilityLabel={link.title}
           >
-            <View
-              style={[
-                styles.linkBadge,
-                { backgroundColor: theme.background, borderColor: theme.rule },
-              ]}
-            >
-              <Text style={[styles.linkGlyph, { color: theme.accent }]}>
-                {link.glyph}
-              </Text>
-            </View>
+            <Image
+              source={link.icon}
+              style={styles.linkIcon}
+              resizeMode="contain"
+            />
             <View style={{ flex: 1 }}>
               <Text style={[styles.linkTitle, { color: theme.text }]}>
                 {link.title}
@@ -415,11 +411,8 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center",
     borderRadius: 13, borderWidth: 1, padding: 15, marginBottom: 10,
   },
-  linkBadge: {
-    width: 40, height: 40, borderRadius: 20, borderWidth: 1,
-    alignItems: "center", justifyContent: "center", marginRight: 14,
-  },
-  linkGlyph: { fontSize: 17, fontWeight: "700" },
+  linkIcon: { width: 26, height: 26, marginRight: 15 },
+  divider: { height: 1, marginTop: 34, marginBottom: 22 },
   linkTitle: { fontSize: 16, fontWeight: "600" },
   linkSub: { fontSize: 13.5, marginTop: 1 },
   linkGo: { fontSize: 22, marginLeft: 8 },

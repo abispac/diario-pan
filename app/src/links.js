@@ -20,28 +20,28 @@ export const READING_PLAN = {
 export const LINKS = [
   {
     key: "podcast",
-    glyph: "♪",
+    icon: require("../assets/icons/spotify.png"),
     title: "Podcast en Spotify",
     subtitle: "Ps. Marcos Richards",
     url: "https://open.spotify.com/show/3m5Fyjt2Np9RHfDix9VyNl",
   },
   {
     key: "youtube",
-    glyph: "▶",
+    icon: require("../assets/icons/youtube.png"),
     title: "YouTube",
     subtitle: "Todos los devocionales en video",
     url: "https://www.youtube.com/@diariopan9287",
   },
   {
     key: "facebook",
-    glyph: "f",
+    icon: require("../assets/icons/facebook.png"),
     title: "Facebook",
     subtitle: "Comunidad Olivo",
     url: "https://www.facebook.com/comunidadolivo",
   },
   {
     key: "soundcloud",
-    glyph: "≋",
+    icon: require("../assets/icons/soundcloud.png"),
     title: "SoundCloud",
     subtitle: "Prédicas y audio de la iglesia",
     url: "https://soundcloud.com/comunidad_olivo",
