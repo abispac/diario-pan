@@ -2,14 +2,15 @@
 <!-- ==============================================================
   index.html - the public home page of diariopan.com
 
-  This is what anyone sees when they visit the site: today's
-  devotional front and center, ready to play (no ads, ever),
-  and below it the archive of past days to pick from.
+  Today's devotional front and center (no ads, ever), the archive of
+  past days below it, and everything that used to live on the
+  Linktree: the reading plan, the podcast, and the church's socials.
 
-  It talks to the same two public endpoints the mobile app uses:
+  Public endpoints it uses (same ones the mobile app uses):
     GET /api/videos             -> list of published videos
     GET /api/videos/:id/stream  -> the video bytes (local disk or
                                    Google Drive, server decides)
+    GET /api/store-links        -> App Store / Google Play URLs
   No login, no tracking, no cookies. Just the Word, in peace.
 =============================================================== -->
 <html lang="es">
@@ -17,289 +18,454 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Diario Pan — Tu devocional de cada día</title>
-  <meta name="description" content="El devocional diario de nuestra iglesia." />
+  <meta name="description" content="El devocional diario de Comunidad Olivo. Sin anuncios, a la hora que tú elijas." />
+  <meta name="theme-color" content="#7c4a1e" />
+
+  <!-- Open Graph: what shows when someone shares the link on WhatsApp -->
+  <meta property="og:title" content="Diario Pan" />
+  <meta property="og:description" content="Tres minutos con la Palabra, cada día. Sin anuncios." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://diariopan.com/" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" />
+
   <style>
-    /* ------- Branding: same three variables as the other pages.
-       Swap these when the real church colors arrive. ------------ */
+    /* ---------------------------------------------------------------
+       Branding. The palette matches the app icon (a brown loaf on
+       warm paper) so the site and the phone app feel like one thing.
+       --------------------------------------------------------------- */
     :root {
-      --brand: #7c4a1e;        /* warm bread-brown */
-      --brand-light: #f5ede3;  /* soft warm background */
-      --brand-dark: #4e2d10;
-      --card: #ffffff;
-      --text: #2b2018;
-      --muted: #8a7a68;
+      --paper:      #f3ece1;
+      --surface:    #fffdf9;
+      --surface-2:  #faf3e8;
+      --ink:        #241a12;
+      --muted:      #857263;
+      --crust:      #7c4a1e;
+      --crust-deep: #4e2d10;
+      --ember:      #b8621b;
+      --rule:       #e2d5c3;
+      --shadow:     rgba(78, 45, 16, .13);
+      --on-crust:   #fdf7ef;
+
+      --display: "Fraunces", Georgia, "Times New Roman", serif;
+      --body: "Source Sans 3", -apple-system, "Segoe UI", Roboto, sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Dark mode, for whoever reads at night. */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper:      #17110c;
+        --surface:    #221913;
+        --surface-2:  #2b2017;
+        --ink:        #f2e8dc;
+        --muted:      #a89684;
+        --crust:      #c98a4e;
+        --crust-deep: #e0a76c;
+        --ember:      #e08a3c;
+        --rule:       #3a2c20;
+        --shadow:     rgba(0, 0, 0, .45);
+        --on-crust:   #1a1209;
+      }
+    }
+
+    * { box-sizing: border-box; }
     body {
-      font-family: Georgia, "Times New Roman", serif; /* warm, book-like */
-      background: var(--brand-light);
-      color: var(--text);
-      min-height: 100vh;
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: 17px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
     }
-    /* Sans-serif for UI bits; serif stays for headings/verse. */
-    .ui { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--crust); }
+    h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15; }
+    :focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 4px; }
+
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 40px); }
 
     /* ---------------- header ---------------- */
-    header {
-      display: flex; align-items: center; gap: 14px;
-      padding: 20px clamp(16px, 5vw, 48px);
+    header { padding: 26px 0 8px; }
+    .bar { display: flex; align-items: center; gap: 14px; }
+    .mark { width: 46px; height: 46px; flex: 0 0 auto; }
+    .wordmark {
+      font-family: var(--body); font-weight: 700; font-size: 15px;
+      letter-spacing: .34em; text-transform: uppercase; color: var(--ink);
     }
-    .logo {
-      width: 52px; height: 52px; border-radius: 50%;
-      background: var(--brand); color: #fff; font-size: 26px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .brand-name { font-size: 26px; font-weight: 700; color: var(--brand-dark); }
-    .brand-tag { font-size: 13px; color: var(--muted); }
-    header .spacer { flex: 1; }
-    .app-link {
-      background: var(--brand); color: #fff; text-decoration: none;
-      padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
-      white-space: nowrap;
-    }
-    .app-link:hover { background: var(--brand-dark); }
-    .store-links {
-      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
-      margin: 0 auto 28px;
-    }
-    .store-button {
-      display: inline-flex; align-items: center; gap: 10px;
-      min-width: 210px; padding: 12px 18px; border-radius: 12px;
-      background: #17120e; color: #fff; text-decoration: none;
-      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-      font-weight: 700; box-shadow: 0 4px 14px rgba(78, 45, 16, .16);
-    }
-    .store-button:hover { background: var(--brand-dark); transform: translateY(-1px); }
-    .store-button span { font-size: 24px; }
+    .tagline { font-size: 13.5px; color: var(--muted); margin-top: 1px; }
+    .bar .spacer { flex: 1; }
+    .nav { display: flex; gap: 22px; font-size: 15px; }
+    .nav a { color: var(--muted); text-decoration: none; }
+    .nav a:hover { color: var(--crust); }
+    @media (max-width: 720px) { .nav { display: none; } }
 
-    /* ---------------- main layout ---------------- */
-    main {
-      max-width: 1100px; margin: 0 auto;
-      padding: 8px clamp(16px, 5vw, 48px) 64px;
-    }
+    /* The three score marks from the loaf, reused as a section divider. */
+    .score { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; }
+    .score h2 { font-size: clamp(21px, 3vw, 26px); font-weight: 600; color: var(--ink); }
+    .score .marks { color: var(--crust); opacity: .55; letter-spacing: -.06em; font-size: 19px; font-weight: 700; }
+    .score .line { flex: 1; height: 1px; background: var(--rule); }
 
-    /* A gentle greeting above the player, like opening a book. */
-    .greeting { text-align: center; margin: 12px 0 24px; }
-    .greeting h1 {
-      font-size: clamp(24px, 4vw, 34px); color: var(--brand-dark);
-      font-weight: 700;
-    }
-    .greeting p { color: var(--muted); margin-top: 6px; font-size: 16px; font-style: italic; }
+    /* ---------------- hero + player ---------------- */
+    .hero { padding: 22px 0 8px; text-align: center; }
+    .hero h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 600; color: var(--ink); }
+    .hero .sub { color: var(--muted); font-size: 17px; margin-top: 8px; font-style: italic; font-family: var(--display); }
 
-    /* ---------------- the player card ---------------- */
     .player-card {
-      background: var(--card); border-radius: 20px; overflow: hidden;
-      box-shadow: 0 6px 32px rgba(78, 45, 16, .12);
+      background: var(--surface); border: 1px solid var(--rule);
+      border-radius: 18px; overflow: hidden;
+      box-shadow: 0 10px 40px var(--shadow); margin-top: 26px;
     }
     .player-card video {
-      width: 100%; aspect-ratio: 16 / 9; display: block;
-      background: #000;
+      width: 100%; aspect-ratio: 16 / 9; display: block; background: #000;
     }
-    .player-meta {
-      display: flex; align-items: center; gap: 12px;
-      padding: 18px 22px;
+    .player-meta { display: flex; align-items: center; gap: 14px; padding: 18px 22px; flex-wrap: wrap; }
+    .badge {
+      background: var(--crust); color: var(--on-crust); border-radius: 7px;
+      padding: 4px 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
     }
-    .player-meta .today-badge {
-      background: var(--brand); color: #fff; border-radius: 8px;
-      padding: 4px 10px; font-size: 12px; font-weight: 700; letter-spacing: .5px;
-    }
-    .player-title { font-size: 19px; font-weight: 700; color: var(--brand-dark); }
-    .player-date { font-size: 14px; color: var(--muted); }
+    .player-title { font-family: var(--display); font-size: 21px; font-weight: 600; color: var(--ink); }
+    .player-date { font-size: 14.5px; color: var(--muted); }
 
-    /* ---------------- past videos ---------------- */
-    .archive-heading {
-      margin: 44px 0 18px; font-size: 22px; color: var(--brand-dark);
-      display: flex; align-items: center; gap: 10px;
-    }
-    .archive-heading::after {          /* a soft rule line that fills the row */
-      content: ""; flex: 1; height: 1px; background: #e2d5c3;
-    }
-    /* A single row that scrolls sideways, like flipping through
-       the pages of a diary. */
-    .grid {
-      display: flex; gap: 16px;
-      overflow-x: auto;
-      padding: 4px 4px 14px;           /* room for the card shadow */
-      scroll-snap-type: x proximity;
+    /* ---------------- archive ---------------- */
+    section { margin-top: 56px; }
+    .rail {
+      display: flex; gap: 14px; overflow-x: auto;
+      padding: 4px 4px 16px; scroll-snap-type: x proximity;
       -webkit-overflow-scrolling: touch;
     }
-    .grid::-webkit-scrollbar { height: 8px; }
-    .grid::-webkit-scrollbar-thumb { background: #d8c9b4; border-radius: 4px; }
-    .grid::-webkit-scrollbar-track { background: transparent; }
-    .video-card {
-      background: var(--card); border-radius: 14px; padding: 16px;
-      display: flex; align-items: center; gap: 14px;
-      cursor: pointer; border: 2px solid transparent;
-      box-shadow: 0 2px 10px rgba(78, 45, 16, .07);
-      transition: transform .12s, border-color .12s;
-      text-align: left;
-      flex: 0 0 280px;                 /* fixed width, scrolls sideways */
-      scroll-snap-align: start;
+    .rail::-webkit-scrollbar { height: 8px; }
+    .rail::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+    .rail::-webkit-scrollbar-track { background: transparent; }
+    .day {
+      flex: 0 0 264px; scroll-snap-align: start; text-align: left;
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 13px;
+      padding: 15px 16px; display: flex; gap: 13px; align-items: center;
+      cursor: pointer; font: inherit; color: inherit;
+      transition: transform .12s ease, border-color .12s ease;
     }
-    .video-card:hover { transform: translateY(-2px); border-color: var(--brand); }
-    .video-card.active { border-color: var(--brand); background: #fdf9f2; }
-    .play-dot {
-      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
-      background: var(--brand); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    .day:hover { transform: translateY(-2px); border-color: var(--crust); }
+    .day.active { border-color: var(--crust); background: var(--surface-2); }
+    .dot {
+      width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto;
+      background: var(--surface-2); border: 1px solid var(--rule);
+      display: grid; place-items: center; color: var(--crust);
     }
-    .video-card .t { font-weight: 700; font-size: 15px; color: var(--text); }
-    .video-card .d { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .day .t { display: block; font-weight: 600; font-size: 15.5px; line-height: 1.3; }
+    .day .d { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
 
-    /* ---------------- empty / loading states ---------------- */
-    .state { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 16px; }
+    .state { text-align: center; color: var(--muted); padding: 56px 20px; font-size: 16px; }
 
+    /* ---------------- links (what used to be the Linktree) ---------------- */
+    .links { display: grid; gap: 14px; grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 720px) { .links { grid-template-columns: 1fr; } }
+
+    .link {
+      display: flex; align-items: center; gap: 15px; text-decoration: none;
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 13px;
+      padding: 16px 18px; color: var(--ink);
+      transition: border-color .12s ease, transform .12s ease;
+    }
+    .link:hover { border-color: var(--crust); transform: translateY(-2px); }
+    .link .ico { width: 26px; height: 26px; flex: 0 0 auto; color: var(--crust); }
+    .link .n { font-weight: 600; font-size: 16px; }
+    .link .s { font-size: 13.5px; color: var(--muted); }
+    .link .go { color: var(--muted); font-size: 18px; }
+    .link .spacer { flex: 1; }
+
+    /* The reading plan carries weight: it is the thing people print. */
+    .feature {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 22px; text-decoration: none;
+      background: var(--crust); color: var(--on-crust);
+      border-radius: 16px; padding: 24px 26px;
+      box-shadow: 0 8px 28px var(--shadow);
+      transition: transform .12s ease;
+    }
+    .feature:hover { transform: translateY(-2px); }
+    .feature .k { font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; opacity: .72; }
+    .feature h3 { font-size: 25px; font-weight: 600; margin-top: 3px; }
+    .feature p { margin: 6px 0 0; font-size: 15px; opacity: .82; max-width: 46ch; }
+    .feature .sheet { flex: 0 0 auto; opacity: .9; }
+    .feature .spacer { flex: 1; }
+    @media (max-width: 560px) { .feature .sheet { display: none; } }
+
+    /* ---------------- the app ---------------- */
+    .app {
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 16px;
+      padding: 30px clamp(20px, 4vw, 36px); display: flex; gap: 30px;
+      align-items: center; flex-wrap: wrap;
+    }
+    .app h3 { font-size: 24px; font-weight: 600; }
+    .app p { color: var(--muted); font-size: 15.5px; margin: 8px 0 0; max-width: 40ch; }
+    .app .col { flex: 1 1 300px; }
+    .stores { display: flex; flex-direction: column; gap: 11px; flex: 0 0 auto; }
+    .store {
+      display: inline-flex; align-items: center; gap: 12px; min-width: 232px;
+      padding: 12px 18px; border-radius: 11px;
+      background: var(--ink); color: var(--paper); text-decoration: none;
+      font-weight: 600; font-size: 15px;
+    }
+    .store:hover { background: var(--crust-deep); color: var(--on-crust); }
+    .store .sm { display: block; font-size: 11px; font-weight: 400; opacity: .72; letter-spacing: .04em; }
+
+    /* ---------------- footer ---------------- */
     footer {
-      text-align: center; color: #b0a290; font-size: 13px;
-      padding: 24px; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      margin-top: 64px; border-top: 1px solid var(--rule);
+      padding: 26px 0 40px; font-size: 14px; color: var(--muted);
+      display: flex; gap: 8px 22px; flex-wrap: wrap; align-items: center;
     }
-    footer a { color: var(--brand); }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--crust); text-decoration: underline; }
+    footer .spacer { flex: 1; }
+
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
-  <header class="ui">
-    <!-- Placeholder logo - replace with the church logo image -->
-    <div class="logo">🍞</div>
-    <div>
-      <div class="brand-name" style="font-family: Georgia, serif;">Diario Pan</div>
-      <div class="brand-tag">El devocional de cada día</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="bar">
+      <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="42" fill="var(--crust)"/>
+        <rect x="27" y="38" width="46" height="25" rx="12.5" fill="var(--paper)"/>
+        <g stroke="var(--crust)" stroke-width="4.2" stroke-linecap="round">
+          <line x1="38" y1="58" x2="42.5" y2="43"/>
+          <line x1="48" y1="58" x2="52.5" y2="43"/>
+          <line x1="58" y1="58" x2="62.5" y2="43"/>
+        </g>
+      </svg>
+      <div>
+        <div class="wordmark">Diario Pan</div>
+        <div class="tagline">Comunidad Olivo &middot; el devocional de cada día</div>
+      </div>
+      <div class="spacer"></div>
+      <nav class="nav">
+        <a href="#anteriores">Anteriores</a>
+        <a href="#mas">Plan y podcast</a>
+        <a href="#app">La app</a>
+      </nav>
     </div>
-    <div class="spacer"></div>
-    <!-- Send visitors to the QR page to install the app -->
-    <a class="app-link" href="/descargar">📱 Descarga la app</a>
   </header>
 
-  <main>
-    <div class="greeting">
-      <h1 id="greeting">Bienvenido</h1>
-    </div>
+  <div class="hero">
+    <h1 id="saludo">Bienvenido</h1>
+    <p class="sub">Tres minutos con la Palabra. Sin anuncios, nunca.</p>
+  </div>
 
-    <div class="store-links ui" aria-label="Descargar Diario Pan">
-      <a class="store-button" href="https://apps.apple.com/app/diario-pan/id6787484124" target="_blank" rel="noopener">
-        <span aria-hidden="true"></span> Descargar para iPhone
-      </a>
-      <a class="store-button" href="https://play.google.com/store/apps/details?id=com.diariopan.app" target="_blank" rel="noopener">
-        <span aria-hidden="true">▶</span> Descargar para Android
-      </a>
-    </div>
-
-    <!-- ============ Today's (or selected) video ============ -->
-    <div class="player-card" id="playerCard" style="display:none">
-      <!-- The player. src is set by JavaScript; the server decides
-           whether the bytes come from its disk or Google Drive. -->
-      <video id="player" controls playsinline preload="metadata"></video>
-      <div class="player-meta ui">
-        <span class="today-badge" id="todayBadge">HOY</span>
-        <div>
-          <div class="player-title" id="playerTitle"></div>
-          <div class="player-date" id="playerDate"></div>
-        </div>
+  <!-- ============ today's (or selected) video ============ -->
+  <div class="player-card" id="playerCard" style="display:none">
+    <video id="player" controls playsinline preload="metadata"></video>
+    <div class="player-meta">
+      <span class="badge" id="todayBadge">HOY</span>
+      <div>
+        <div class="player-title" id="playerTitle"></div>
+        <div class="player-date" id="playerDate"></div>
       </div>
     </div>
+  </div>
 
-    <!-- Shown while loading, or if there are no videos yet -->
-    <div class="state" id="state">Cargando el devocional de hoy…</div>
+  <div class="state" id="state">Cargando el devocional de hoy…</div>
 
-    <!-- ============ The archive ============ -->
-    <h2 class="archive-heading" id="archiveHeading" style="display:none">Devocionales anteriores</h2>
-    <div class="grid ui" id="grid"></div>
-  </main>
+  <!-- ============ the archive ============ -->
+  <section id="anteriores" style="display:none">
+    <div class="score">
+      <span class="marks" aria-hidden="true">///</span>
+      <h2>Devocionales anteriores</h2>
+      <span class="line"></span>
+    </div>
+    <div class="rail" id="rail"></div>
+  </section>
+
+  <!-- ============ everything that used to be on the Linktree ============ -->
+  <section id="mas">
+    <div class="score">
+      <span class="marks" aria-hidden="true">///</span>
+      <h2>Más de Diario Pan</h2>
+      <span class="line"></span>
+    </div>
+
+    <div class="links">
+
+      <a class="feature" href="https://drive.google.com/file/d/1SCdFikj3DlsTYyI7DgHeR-SPQw-Y7cJd/view?usp=sharing" target="_blank" rel="noopener">
+        <div>
+          <div class="k">Descarga e imprime</div>
+          <h3>Plan de Lectura</h3>
+          <p>La guía de lectura bíblica del año, día por día. Ábrela en el teléfono o imprímela para la mesa.</p>
+        </div>
+        <span class="spacer"></span>
+        <svg class="sheet" width="66" height="82" viewBox="0 0 66 82" aria-hidden="true">
+          <rect x="1" y="1" width="64" height="80" rx="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+          <g stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55">
+            <line x1="12" y1="18" x2="42" y2="18"/>
+            <line x1="12" y1="30" x2="54" y2="30"/>
+            <line x1="12" y1="42" x2="54" y2="42"/>
+            <line x1="12" y1="54" x2="48" y2="54"/>
+            <line x1="12" y1="66" x2="36" y2="66"/>
+          </g>
+        </svg>
+      </a>
+
+      <a class="link" href="https://open.spotify.com/show/3m5Fyjt2Np9RHfDix9VyNl" target="_blank" rel="noopener">
+        <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.5 17.3a.75.75 0 0 1-1.03.25c-2.82-1.72-6.37-2.11-10.56-1.16a.75.75 0 1 1-.33-1.46c4.58-1.05 8.5-.6 11.67 1.34.35.22.46.68.25 1.03zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.23-1.98-8.15-2.56-11.97-1.4a.94.94 0 1 1-.54-1.8c4.36-1.32 9.78-.68 13.49 1.6.44.27.58.85.31 1.29zm.13-3.4C15.23 8.33 8.9 8.13 5.2 9.25a1.12 1.12 0 1 1-.65-2.15c4.25-1.29 11.24-1.04 15.68 1.59a1.12 1.12 0 1 1-1.14 1.94z"/></svg>
+        <div>
+          <div class="n">Podcast en Spotify</div>
+          <div class="s">Ps. Marcos Richards</div>
+        </div>
+        <span class="spacer"></span><span class="go">&rarr;</span>
+      </a>
+
+      <a class="link" href="https://www.youtube.com/@diariopan9287" target="_blank" rel="noopener">
+        <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.12-2.13C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.52A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.12 2.13c1.88.52 9.38.52 9.38.52s7.5 0 9.38-.52a3 3 0 0 0 2.12-2.13A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.55 15.57V8.43L15.82 12z"/></svg>
+        <div>
+          <div class="n">YouTube</div>
+          <div class="s">Todos los devocionales en video</div>
+        </div>
+        <span class="spacer"></span><span class="go">&rarr;</span>
+      </a>
+
+      <a class="link" href="https://www.facebook.com/comunidadolivo" target="_blank" rel="noopener">
+        <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.96H15.83c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>
+        <div>
+          <div class="n">Facebook</div>
+          <div class="s">Comunidad Olivo</div>
+        </div>
+        <span class="spacer"></span><span class="go">&rarr;</span>
+      </a>
+
+      <a class="link" href="https://soundcloud.com/comunidad_olivo" target="_blank" rel="noopener">
+        <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M1 14.2v3.1c0 .2.14.34.3.34s.3-.15.3-.34V14.2c0-.2-.14-.35-.3-.35s-.3.16-.3.35zm2-1.6v4.7c0 .2.14.35.3.35s.3-.15.3-.35v-4.7c0-.2-.14-.35-.3-.35s-.3.15-.3.35zm2-1v5.7c0 .22.15.38.33.38s.33-.16.33-.38v-5.7c0-.22-.15-.38-.33-.38s-.33.16-.33.38zm2-.9v6.6c0 .23.16.4.35.4s.35-.17.35-.4v-6.6c0-.23-.16-.4-.35-.4s-.35.17-.35.4zm2-1.1v7.7c0 .24.17.42.37.42s.37-.18.37-.42V9.6c0-.24-.17-.42-.37-.42s-.37.18-.37.42zm2-1.3v9c0 .25.18.44.39.44s.39-.19.39-.44v-9c0-.25-.18-.44-.39-.44s-.39.19-.39.44zM13 7v10.3c0 .26.19.46.41.46s.41-.2.41-.46V7c0-.26-.19-.46-.41-.46S13 6.74 13 7zm2.3-.9v11.2c0 .27.2.48.43.48s.43-.21.43-.48V6.1c0-.27-.2-.48-.43-.48s-.43.21-.43.48zM19.6 10c-.5 0-.97.1-1.4.29-.29-3.2-3-5.71-6.3-5.71-.4 0-.8.04-1.17.11v13.2h8.87A3.95 3.95 0 0 0 24 13.95 3.95 3.95 0 0 0 19.6 10z"/></svg>
+        <div>
+          <div class="n">SoundCloud</div>
+          <div class="s">Prédicas y audio de la iglesia</div>
+        </div>
+        <span class="spacer"></span><span class="go">&rarr;</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ============ the app ============ -->
+  <section id="app">
+    <div class="score">
+      <span class="marks" aria-hidden="true">///</span>
+      <h2>Llévalo en el teléfono</h2>
+      <span class="line"></span>
+    </div>
+    <div class="app">
+      <div class="col">
+        <h3>Tu devocional, a la hora que tú elijas</h3>
+        <p>Instala la app y escoge tu hora: el pastor sube el video de madrugada, tu teléfono te avisa cuando tú quieras. Sin anuncios y sin cuenta.</p>
+        <p style="margin-top:12px"><a href="/descargar">Ver los códigos QR para imprimir &rarr;</a></p>
+      </div>
+      <div class="stores">
+        <a class="store" id="storeIos" href="https://apps.apple.com/app/diario-pan/id6787484124" target="_blank" rel="noopener">
+          <svg width="20" height="24" viewBox="0 0 20 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.75c-.02-2.4 1.96-3.55 2.05-3.6-1.12-1.63-2.85-1.86-3.47-1.88-1.48-.15-2.88.87-3.63.87-.75 0-1.9-.85-3.13-.83-1.6.03-3.09.93-3.92 2.36-1.67 2.9-.43 7.2 1.2 9.55.8 1.15 1.75 2.44 3 2.4 1.2-.05 1.66-.78 3.11-.78 1.45 0 1.86.78 3.13.75 1.29-.02 2.11-1.17 2.9-2.33.91-1.34 1.29-2.63 1.31-2.7-.03-.01-2.52-.97-2.55-3.81zM14 5.2c.66-.81 1.11-1.93.99-3.05-.95.04-2.11.64-2.8 1.44-.62.71-1.16 1.85-1.02 2.94 1.06.08 2.15-.54 2.83-1.33z"/></svg>
+          <span>App Store<span class="sm">para iPhone y iPad</span></span>
+        </a>
+        <a class="store" id="storeAndroid" href="https://play.google.com/store/apps/details?id=com.diariopan.app" target="_blank" rel="noopener">
+          <svg width="20" height="24" viewBox="0 0 20 22" fill="currentColor" aria-hidden="true"><path d="M1.1.5A1.6 1.6 0 0 0 .6 1.7v18.6c0 .47.18.88.5 1.2l.1.1L11.6 11.1v-.24L1.2.42zM15 14.7l-3.4-3.5v-.25l3.4-3.5.08.05 4.1 2.33c1.17.66 1.17 1.75 0 2.42L15.1 14.6zM14.9 14.8l-3.5-3.5L1.1 21.6c.39.4 1.02.45 1.74.05l12-6.83zM14.9 7.4L2.85.55C2.13.14 1.5.2 1.1.6L11.4 10.9z"/></svg>
+          <span>Google Play<span class="sm">para Android</span></span>
+        </a>
+      </div>
+    </div>
+  </section>
 
   <footer>
-    Diario Pan · un proyecto de <a href="https://github.com" rel="noopener">código abierto</a> de nuestra iglesia
-    · <a href="/privacidad">Privacidad</a> · <a href="/soporte">Soporte</a>
+    <span>Diario Pan &middot; Comunidad Olivo</span>
+    <span class="spacer"></span>
+    <a href="/privacidad">Privacidad</a>
+    <a href="/soporte">Soporte</a>
+    <a href="mailto:contacto@diariopan.com">contacto@diariopan.com</a>
   </footer>
 
-  <script>
-    // ----- tiny helpers -----
-    const $ = (id) => document.getElementById(id);
+</div>
 
-    // "2026-07-04" -> "viernes, 4 de julio de 2026", warm and human.
-    function prettyDate(iso) {
-      const [y, m, d] = iso.split("-").map(Number);
-      const s = new Date(y, m - 1, d).toLocaleDateString("es", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
-      });
-      // Capitalize only the first letter: "Martes, 14 de julio de 2026".
-      return s.charAt(0).toUpperCase() + s.slice(1);
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+
+  // "2026-07-04" -> "Viernes, 4 de julio de 2026"
+  function prettyDate(iso, withYear) {
+    var p = iso.split("-").map(Number);
+    var opts = { weekday: "long", day: "numeric", month: "long" };
+    if (withYear) { opts.year = "numeric"; }
+    var s = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("es", opts);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // A greeting that matches the visitor's clock.
+  (function setGreeting() {
+    var h = new Date().getHours();
+    $("saludo").textContent =
+      h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
+  })();
+
+  var videos = [];
+  var currentId = null;
+
+  function select(video, autoplay) {
+    currentId = video.id;
+    $("player").src = "/api/videos/" + video.id + "/stream";
+    $("playerTitle").textContent = video.title;
+    $("playerDate").textContent = prettyDate(video.publish_date, true);
+    $("todayBadge").style.display = video.id === videos[0].id ? "" : "none";
+    $("playerCard").style.display = "";
+    if (autoplay) {
+      $("player").play().catch(function () {});
+      $("playerCard").scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    Array.prototype.forEach.call(document.querySelectorAll(".day"), function (el) {
+      el.classList.toggle("active", Number(el.dataset.id) === currentId);
+    });
+  }
 
-    // A greeting that matches the visitor's clock - small touch,
-    // big warmth.
-    (function setGreeting() {
-      const h = new Date().getHours();
-      $("greeting").textContent =
-        h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
-    })();
+  function makeCard(video) {
+    var b = document.createElement("button");
+    b.className = "day";
+    b.dataset.id = video.id;
+    b.innerHTML =
+      '<span class="dot"><svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true">' +
+      '<path d="M1 1 11 7 1 13Z" fill="currentColor"/></svg></span>' +
+      '<span><span class="t"></span><span class="d"></span></span>';
+    b.querySelector(".t").textContent = video.title;
+    b.querySelector(".d").textContent = prettyDate(video.publish_date, false);
+    b.addEventListener("click", function () { select(video, true); });
+    return b;
+  }
 
-    let videos = [];        // the published list, newest first
-    let currentId = null;   // which one is in the player right now
-
-    // Put a video in the big player and mark its card as active.
-    // autoplay=false on first load (browsers block autoplay with
-    // sound anyway); true when the user clicks a card.
-    function select(video, autoplay) {
-      currentId = video.id;
-      $("player").src = `/api/videos/${video.id}/stream`;
-      $("playerTitle").textContent = video.title;
-      $("playerDate").textContent = prettyDate(video.publish_date);
-      // The "HOY" badge only makes sense on the newest video.
-      $("todayBadge").style.display = video.id === videos[0].id ? "" : "none";
-      $("playerCard").style.display = "";
-      if (autoplay) {
-        $("player").play().catch(() => {}); // ignore autoplay refusals
-        // On phones, bring the player back into view.
-        $("playerCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  fetch("/api/videos")
+    .then(function (r) { return r.json(); })
+    .then(function (list) {
+      videos = list;
+      if (!videos.length) {
+        $("state").textContent = "Aún no hay devocionales publicados. ¡Vuelve pronto!";
+        return;
       }
-      // Refresh the highlight on the cards.
-      document.querySelectorAll(".video-card").forEach((el) => {
-        el.classList.toggle("active", Number(el.dataset.id) === currentId);
-      });
-    }
+      $("state").style.display = "none";
+      select(videos[0], false);
 
-    // Build one clickable card for the archive grid.
-    function makeCard(video) {
-      const btn = document.createElement("button");
-      btn.className = "video-card";
-      btn.dataset.id = video.id;
-      btn.innerHTML = `
-        <span class="play-dot">▶</span>
-        <span>
-          <span class="t">${video.title.replace(/</g, "&lt;")}</span><br/>
-          <span class="d">${prettyDate(video.publish_date)}</span>
-        </span>`;
-      btn.addEventListener("click", () => select(video, true));
-      return btn;
-    }
+      var past = videos.slice(1);
+      if (past.length) {
+        $("anteriores").style.display = "";
+        past.forEach(function (v) { $("rail").appendChild(makeCard(v)); });
+      }
+    })
+    .catch(function () {
+      $("state").textContent =
+        "No se pudo cargar los devocionales. Intenta de nuevo en un momento.";
+    });
 
-    // ----- load everything -----
-    fetch("/api/videos")
-      .then((r) => r.json())
-      .then((list) => {
-        videos = list;
-        if (!videos.length) {
-          $("state").textContent =
-            "Aún no hay devocionales publicados. ¡Vuelve pronto! 🍞";
-          return;
-        }
-        $("state").style.display = "none";
-
-        // Today's (newest) video goes straight into the player.
-        select(videos[0], false);
-
-        // Everything else becomes the archive grid. If there is
-        // only one video so far, we simply skip the archive section.
-        const past = videos.slice(1);
-        if (past.length) {
-          $("archiveHeading").style.display = "";
-          past.forEach((v) => $("grid").appendChild(makeCard(v)));
-        }
-      })
-      .catch(() => {
-        $("state").textContent =
-          "No se pudo cargar los devocionales. Intenta de nuevo en un momento.";
-      });
-  </script>
+  // Keep the store buttons in sync with .env, like /descargar does.
+  fetch("/api/store-links")
+    .then(function (r) { return r.json(); })
+    .then(function (l) {
+      if (l && l.ios) { $("storeIos").href = l.ios; }
+      if (l && l.android) { $("storeAndroid").href = l.android; }
+    })
+    .catch(function () {});
+</script>
 </body>
 </html>
