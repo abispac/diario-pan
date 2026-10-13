@@ -28,7 +28,7 @@ import {
 import { Video, ResizeMode } from "expo-av";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../../App";
-import { fetchVideos, fetchSettings, streamUrl } from "../api";
+import { fetchVideos, fetchSettings, fetchTodayReading, streamUrl } from "../api";
 import { DISPLAY_FONT } from "../theme";
 import { LINKS, READING_PLAN } from "../links";
 
@@ -79,6 +79,9 @@ export default function HomeScreen({ navigation }) {
   // Start from the built-in values so the card is never empty,
   // then replace them with whatever the server currently says.
   const [plan, setPlan] = useState(READING_PLAN);
+  // Today's line from the month's plan; null until it loads, and it
+  // stays null when no plan covers today.
+  const [todayRead, setTodayRead] = useState(null);
 
   // Handle to today's inline video player, so we can pause it
   // when the user leaves this screen.
@@ -105,6 +108,7 @@ export default function HomeScreen({ navigation }) {
   // Pick up any change the admin saved. Failures are silent on
   // purpose: the defaults are already on screen.
   const loadPlan = useCallback(async () => {
+    fetchTodayReading().then(setTodayRead);
     const s = await fetchSettings();
     if (!s) return;
     setPlan({
@@ -322,6 +326,16 @@ export default function HomeScreen({ navigation }) {
           <Text style={[styles.featureBody, { color: theme.onAccent }]}>
             {plan.subtitle}
           </Text>
+          {todayRead ? (
+            <View style={styles.todayRead}>
+              <Text style={[styles.todayReadLabel, { color: theme.onAccent }]}>
+                LECTURA DE HOY
+              </Text>
+              <Text style={[styles.todayReadValue, { color: theme.onAccent }]}>
+                {todayRead}
+              </Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
 
         {LINKS.map((link) => (
@@ -424,6 +438,12 @@ const styles = StyleSheet.create({
   featureKicker: { fontSize: 11, fontWeight: "700", letterSpacing: 1.6, opacity: 0.75 },
   featureTitle: { fontFamily: DISPLAY_FONT, fontSize: 24, fontWeight: "600", marginTop: 4 },
   featureBody: { fontSize: 14.5, lineHeight: 21, marginTop: 7, opacity: 0.85 },
+  todayRead: {
+    marginTop: 14, paddingTop: 13,
+    borderTopWidth: 1, borderTopColor: "rgba(253, 247, 239, 0.28)",
+  },
+  todayReadLabel: { fontSize: 10.5, letterSpacing: 1.6, opacity: 0.72 },
+  todayReadValue: { fontSize: 15.5, fontWeight: "600", marginTop: 3, lineHeight: 21 },
 
   link: {
     flexDirection: "row", alignItems: "center",

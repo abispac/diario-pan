@@ -100,6 +100,20 @@ export async function fetchSettings() {
   }
 }
 
+// Today's reading from the monthly plan the admin uploaded.
+// Returns NULL when there is nothing for today, so the card simply
+// leaves the line out instead of showing an empty label.
+export async function fetchTodayReading() {
+  try {
+    const res = await fetch(`${serverUrl}/api/reading/today`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.base ? data.base : null;
+  } catch {
+    return null;
+  }
+}
+
 // The URL the video player streams from. The server decides
 // internally whether the bytes come from its own disk or from
 // Google Drive - the app never knows or cares.

@@ -18,7 +18,8 @@
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
     "multer": "^2.0.1",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "pdfjs-dist": "^4.10.38"
   },
   "engines": {
     "node": ">=18"

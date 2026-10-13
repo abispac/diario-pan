@@ -100,6 +100,17 @@
       font-size: 15px;
     }
     button.secondary:hover { background: var(--brand-light); }
+    /* The preview table: 31 rows the uploader reads before publishing. */
+    .preview { margin-top: 16px; max-height: 320px; overflow-y: auto;
+      border: 2px solid #e5ddd2; border-radius: 10px; }
+    .preview table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .preview td { padding: 7px 10px; border-bottom: 1px solid #f0e8dc; }
+    .preview td:first-child {
+      width: 34px; font-weight: 700; color: var(--brand);
+      font-variant-numeric: tabular-nums;
+    }
+    .preview tr:last-child td { border-bottom: 0; }
+    .preview tr.today td { background: #fdf3dc; }
     .logout { text-align: center; margin-top: 16px; }
     .logout a { color: #aaa; font-size: 13px; text-decoration: none; }
   </style>
@@ -172,6 +183,27 @@
         <div id="planMsg" class="msg"></div>
       </div>
 
+      <!-- ============ Plan del mes (PDF) ============
+           Upload the month's PDF; the server reads every day out of
+           it and shows them here. Nothing is saved until "Publicar". -->
+      <div class="panel">
+        <h2>📅 Lecturas del mes</h2>
+        <p class="hint">
+          Sube el PDF del mes. Se leen las lecturas de cada día y te
+          las muestro aquí antes de guardar nada.
+        </p>
+
+        <div class="dropzone" id="pdfZone">
+          <input type="file" id="pdfFile" accept="application/pdf" />
+          <span id="pdfText">📄 Toca aquí o arrastra el PDF del mes</span>
+        </div>
+
+        <button id="pdfBtn" class="secondary">Leer el PDF</button>
+        <div id="pdfMsg" class="msg"></div>
+        <div id="pdfPreview" class="preview hidden"></div>
+        <button id="publishBtn" class="hidden">Publicar estas lecturas</button>
+      </div>
+
       <div class="logout"><a href="#" id="logoutLink">Cerrar sesión</a></div>
     </div>
   </div>
@@ -205,6 +237,99 @@
         show($("planMsg"), "err", "No se pudo leer el Plan de Lectura actual.");
       }
     }
+
+    // ----- Lecturas del mes (PDF) -----
+    const pdfZone = $("pdfZone"), pdfInput = $("pdfFile");
+    let pendingToken = null;
+
+    pdfZone.addEventListener("click", () => pdfInput.click());
+    pdfZone.addEventListener("dragover", (e) => { e.preventDefault(); pdfZone.classList.add("dragover"); });
+    pdfZone.addEventListener("dragleave", () => pdfZone.classList.remove("dragover"));
+    pdfZone.addEventListener("drop", (e) => {
+      e.preventDefault(); pdfZone.classList.remove("dragover");
+      if (e.dataTransfer.files.length) { pdfInput.files = e.dataTransfer.files; showPdfName(); }
+    });
+    pdfInput.addEventListener("change", showPdfName);
+    function showPdfName() {
+      if (pdfInput.files[0]) $("pdfText").textContent = "✅ " + pdfInput.files[0].name;
+    }
+
+    $("pdfBtn").addEventListener("click", async () => {
+      const file = pdfInput.files[0];
+      if (!file) return show($("pdfMsg"), "err", "Elige el PDF del mes.");
+
+      $("pdfBtn").disabled = true;
+      $("publishBtn").classList.add("hidden");
+      $("pdfPreview").classList.add("hidden");
+      show($("pdfMsg"), "warn", "⏳ Leyendo el PDF...");
+
+      const form = new FormData();
+      form.append("pdf", file);
+      try {
+        const r = await fetch("/api/reading/preview", { method: "POST", body: form });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) {
+          const extra = (data.problems || []).join(" ");
+          return show($("pdfMsg"), "err", (data.error || "No se pudo leer el PDF.") + (extra ? " " + extra : ""));
+        }
+
+        pendingToken = data.token;
+
+        // Draw what the server understood, one row per day.
+        const today = new Date();
+        const isThisMonth =
+          data.monthKey ===
+          today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0");
+        const rows = data.days.map((d) => {
+          const mark = isThisMonth && d.day === today.getDate() ? ' class="today"' : "";
+          const day = String(d.day).padStart(2, "0");
+          const base = d.base.replace(/</g, "&lt;");
+          return "<tr" + mark + "><td>" + day + "</td><td>" + base + "</td></tr>";
+        }).join("");
+        $("pdfPreview").innerHTML = "<table>" + rows + "</table>";
+        $("pdfPreview").classList.remove("hidden");
+        $("publishBtn").classList.remove("hidden");
+
+        if (data.problems && data.problems.length) {
+          show($("pdfMsg"), "warn", "⚠️ " + data.problems.join(" ") + " Revisa la lista antes de publicar.");
+        } else {
+          show($("pdfMsg"), "ok",
+            "Leí " + data.days.length + " días de " + data.month +
+            ". Revísalos y publica si están bien.");
+        }
+      } catch {
+        show($("pdfMsg"), "err", "No se pudo conectar con el servidor.");
+      } finally {
+        $("pdfBtn").disabled = false;
+      }
+    });
+
+    $("publishBtn").addEventListener("click", async () => {
+      if (!pendingToken) return;
+      $("publishBtn").disabled = true;
+      try {
+        const r = await fetch("/api/reading/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: pendingToken }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+          show($("pdfMsg"), "ok",
+            "✅ Publicado: " + data.saved + " días de " + data.month +
+            ". Ya se ve en la página y en la app.");
+          $("publishBtn").classList.add("hidden");
+          pendingToken = null;
+          loadPlan();
+        } else {
+          show($("pdfMsg"), "err", data.error || "No se pudo publicar.");
+        }
+      } catch {
+        show($("pdfMsg"), "err", "No se pudo conectar con el servidor.");
+      } finally {
+        $("publishBtn").disabled = false;
+      }
+    });
 
     $("planBtn").addEventListener("click", async () => {
       $("planBtn").disabled = true;

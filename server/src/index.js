@@ -6,6 +6,8 @@
 //   /api/videos/...    -> video API (see routes/videos.js)
 //   /api/devices/...   -> notification registration
 //   /api/settings      -> admin-editable content (Plan de Lectura)
+//   /api/reading/...   -> the monthly reading plan (PDF -> one row per day)
+//   /plan.pdf          -> the reading-plan PDF we host ourselves
 //   /api/admin/...     -> login/logout
 //
 // Run with:  npm start   (after filling in server/.env)
@@ -20,6 +22,7 @@ import { handleLogin, handleLogout, requireAdmin } from "./auth.js";
 import videosRouter from "./routes/videos.js";
 import devicesRouter from "./routes/devices.js";
 import settingsRouter from "./routes/settings.js";
+import readingRouter, { planDir } from "./routes/reading.js";
 import { startPushScheduler } from "./push.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +55,7 @@ app.use("/api/videos", videosRouter);
 app.use("/api/devices", devicesRouter);
 // What the admin can edit at /upload (the Plan de Lectura card).
 app.use("/api/settings", settingsRouter);
+app.use("/api/reading", readingRouter);
 
 // ---- Pretty URLs for the pages ----
 // (the home page, public/index.html, is served automatically
@@ -62,6 +66,14 @@ app.get("/upload", page("upload"));         // admin: upload the daily video
 app.get("/descargar", page("descargar"));   // public: QR codes for the apps
 app.get("/privacidad", page("privacidad")); // required by Apple & Google
 app.get("/soporte", page("soporte"));       // required by Apple ("Support URL")
+
+// The reading-plan PDF, served from our own domain so the card does
+// not depend on a Google Drive link staying public.
+app.get("/plan.pdf", (req, res) => {
+  res.sendFile(path.join(planDir, "actual.pdf"), (err) => {
+    if (err && !res.headersSent) res.status(404).send("Aún no hay plan de lectura.");
+  });
+});
 
 // The QR page needs the store links; serve them as a tiny JSON.
 app.get("/api/store-links", (req, res) => res.json(config.storeUrls));

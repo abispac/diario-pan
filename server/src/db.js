@@ -52,6 +52,16 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One row per day of a monthly reading plan, extracted from the
+  -- PDF the admin uploads at /upload. month_key is 'YYYY-MM'.
+  CREATE TABLE IF NOT EXISTS readings (
+    month_key  TEXT NOT NULL,
+    day        INTEGER NOT NULL,
+    base       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (month_key, day)
+  );
+
   -- One row per phone that installed the app.
   CREATE TABLE IF NOT EXISTS devices (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -232,6 +242,47 @@ export function saveSettings(values = {}) {
   });
   write(Object.entries(values).filter(([key]) => key in SETTING_DEFAULTS));
   return getSettings();
+}
+
+// ----------------------------------------------------------------
+// Reading plan
+// ----------------------------------------------------------------
+
+// Replace a whole month at once. Uploading the same month twice
+// overwrites it cleanly instead of leaving half the old days behind.
+export function replaceMonthReadings(monthKey, days) {
+  const del = db.prepare(`DELETE FROM readings WHERE month_key = ?`);
+  const ins = db.prepare(
+    `INSERT INTO readings (month_key, day, base) VALUES (?, ?, ?)`
+  );
+  const write = db.transaction(() => {
+    del.run(monthKey);
+    for (const d of days) ins.run(monthKey, d.day, d.base);
+  });
+  write();
+  return days.length;
+}
+
+// The reading for one date, or null if that month was never loaded.
+// isoDate is 'YYYY-MM-DD'.
+export function getReadingForDate(isoDate) {
+  const monthKey = isoDate.slice(0, 7);
+  const day = Number(isoDate.slice(8, 10));
+  return (
+    db
+      .prepare(`SELECT base FROM readings WHERE month_key = ? AND day = ?`)
+      .get(monthKey, day) || null
+  );
+}
+
+// Every month we have loaded, newest first - for the admin page.
+export function listReadingMonths() {
+  return db
+    .prepare(
+      `SELECT month_key, COUNT(*) AS days
+         FROM readings GROUP BY month_key ORDER BY month_key DESC`
+    )
+    .all();
 }
 
 export default db;

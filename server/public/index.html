@@ -226,6 +226,17 @@
     .feature p { margin: 6px 0 0; font-size: 15px; opacity: .82; max-width: 46ch; }
     .feature .sheet { flex: 0 0 auto; opacity: .9; }
     .feature .spacer { flex: 1; }
+    /* Today's reading, sitting inside the Plan de Lectura card. */
+    .today-read {
+      margin-top: 14px; padding-top: 13px;
+      border-top: 1px solid rgba(253, 247, 239, .28);
+      font-size: 15px;
+    }
+    .today-read .k {
+      font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+      opacity: .72; display: block; margin-bottom: 3px;
+    }
+    .today-read .v { font-weight: 600; font-size: 16.5px; }
     @media (max-width: 560px) { .feature .sheet { display: none; } }
 
     /* ---------------- the app ---------------- */
@@ -326,6 +337,10 @@
           <div class="k">Descarga e imprime</div>
           <h3 id="planTitle">Plan de Lectura</h3>
           <p id="planDesc">La guía de lectura bíblica del año, día por día. Ábrela en el teléfono o imprímela para la mesa.</p>
+          <div class="today-read" id="todayRead" hidden>
+            <span class="k">Lectura de hoy</span>
+            <span class="v" id="todayReadValue"></span>
+          </div>
         </div>
         <span class="spacer"></span>
         <svg class="sheet" width="66" height="82" viewBox="0 0 66 82" aria-hidden="true">
@@ -542,6 +557,18 @@
       });
     }
   );
+
+  // Today's reading, extracted from the month's PDF. Stays hidden
+  // if no plan is loaded for this month, so the card never shows an
+  // empty "Lectura de hoy:" line.
+  fetch("/api/reading/today")
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.base) return;
+      $("todayReadValue").textContent = d.base;
+      $("todayRead").hidden = false;
+    })
+    .catch(function () {});
 
   // The Plan de Lectura card is edited at /upload, so read it from
   // the server rather than from this file. The markup above already
