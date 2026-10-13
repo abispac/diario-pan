@@ -43,6 +43,15 @@ db.exec(`
     notified      INTEGER NOT NULL DEFAULT 0  -- 1 once push notifications went out
   );
 
+  -- Editable settings: anything the admin can change from /upload
+  -- without touching code. One row per setting, key/value.
+  -- Today that is the Plan de Lectura card; tomorrow, whatever else.
+  CREATE TABLE IF NOT EXISTS settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- One row per phone that installed the app.
   CREATE TABLE IF NOT EXISTS devices (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,6 +187,51 @@ export function markDeviceNotified(pushToken, localDate) {
 // If Expo tells us a token is dead (app uninstalled), forget it.
 export function deleteDevice(pushToken) {
   db.prepare(`DELETE FROM devices WHERE push_token = ?`).run(pushToken);
+}
+
+// ----------------------------------------------------------------
+// Settings (what the admin edits at /upload)
+// ----------------------------------------------------------------
+
+// The values the site and the app fall back to when nothing has
+// been saved yet. These match what used to be hard-coded in the
+// pages, so the very first load after this update looks identical.
+export const SETTING_DEFAULTS = {
+  reading_plan_url:
+    "https://drive.google.com/file/d/1SCdFikj3DlsTYyI7DgHeR-SPQw-Y7cJd/view?usp=sharing",
+  reading_plan_title: "Plan de Lectura",
+  reading_plan_desc:
+    "La guía de lectura bíblica del año, día por día. Ábrela en el teléfono o imprímela para la mesa.",
+};
+
+// Every setting, with defaults filled in for anything unsaved.
+export function getSettings() {
+  const rows = db.prepare(`SELECT key, value FROM settings`).all();
+  const saved = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const out = {};
+  for (const [key, fallback] of Object.entries(SETTING_DEFAULTS)) {
+    // An empty saved value means "I cleared this" -> use the default,
+    // so the card can never end up blank or pointing nowhere.
+    out[key] = saved[key]?.trim() ? saved[key] : fallback;
+  }
+  return out;
+}
+
+// Save a batch of settings. Unknown keys are ignored on purpose:
+// the admin page can only change what we decided is changeable.
+export function saveSettings(values = {}) {
+  const stmt = db.prepare(
+    `INSERT INTO settings (key, value, updated_at)
+     VALUES (?, ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_at = datetime('now')`
+  );
+  const write = db.transaction((entries) => {
+    for (const [key, value] of entries) stmt.run(key, String(value ?? ""));
+  });
+  write(Object.entries(values).filter(([key]) => key in SETTING_DEFAULTS));
+  return getSettings();
 }
 
 export default db;

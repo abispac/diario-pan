@@ -86,6 +86,20 @@ export async function fetchVideos() {
   }
 }
 
+// Fetch the admin-editable content (today: the Plan de Lectura
+// card, edited at diariopan.com/upload). Returns NULL on any
+// trouble so the screen keeps showing its built-in defaults
+// rather than a blank card.
+export async function fetchSettings() {
+  try {
+    const res = await fetch(`${serverUrl}/api/settings`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 // The URL the video player streams from. The server decides
 // internally whether the bytes come from its own disk or from
 // Google Drive - the app never knows or cares.

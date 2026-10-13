@@ -28,7 +28,7 @@ import {
 import { Video, ResizeMode } from "expo-av";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../../App";
-import { fetchVideos, streamUrl } from "../api";
+import { fetchVideos, fetchSettings, streamUrl } from "../api";
 import { DISPLAY_FONT } from "../theme";
 import { LINKS, READING_PLAN } from "../links";
 
@@ -75,6 +75,10 @@ export default function HomeScreen({ navigation }) {
   // The devotionals are filmed vertically, so start portrait and
   // correct to the real shape once the video reports its size.
   const [heroAspect, setHeroAspect] = useState(9 / 16);
+  // The Plan de Lectura card is edited at diariopan.com/upload.
+  // Start from the built-in values so the card is never empty,
+  // then replace them with whatever the server currently says.
+  const [plan, setPlan] = useState(READING_PLAN);
 
   // Handle to today's inline video player, so we can pause it
   // when the user leaves this screen.
@@ -98,6 +102,19 @@ export default function HomeScreen({ navigation }) {
     setLoaded(true);
   }, []);
 
+  // Pick up any change the admin saved. Failures are silent on
+  // purpose: the defaults are already on screen.
+  const loadPlan = useCallback(async () => {
+    const s = await fetchSettings();
+    if (!s) return;
+    setPlan({
+      ...READING_PLAN,
+      title: s.reading_plan_title || READING_PLAN.title,
+      subtitle: s.reading_plan_desc || READING_PLAN.subtitle,
+      url: s.reading_plan_url || READING_PLAN.url,
+    });
+  }, []);
+
   // Reload every time the screen comes into focus - so returning
   // from the player after midnight, or opening from a
   // notification, always shows the freshest list. The cleanup
@@ -106,11 +123,12 @@ export default function HomeScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       load();
+      loadPlan();
       return () => {
         heroRef.current?.pauseAsync?.().catch(() => {});
         loadSequence.current += 1;
       };
-    }, [load])
+    }, [load, loadPlan])
   );
 
   const onRefresh = async () => {
@@ -292,17 +310,17 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={[styles.feature, { backgroundColor: theme.accent }]}
-          onPress={() => open(READING_PLAN.url)}
+          onPress={() => open(plan.url)}
           activeOpacity={0.85}
         >
           <Text style={[styles.featureKicker, { color: theme.onAccent }]}>
             DESCARGA E IMPRIME
           </Text>
           <Text style={[styles.featureTitle, { color: theme.onAccent }]}>
-            {READING_PLAN.title}
+            {plan.title}
           </Text>
           <Text style={[styles.featureBody, { color: theme.onAccent }]}>
-            {READING_PLAN.subtitle}
+            {plan.subtitle}
           </Text>
         </TouchableOpacity>
 

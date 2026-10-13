@@ -80,6 +80,26 @@
     .progress { margin-top: 16px; height: 10px; border-radius: 5px; background: #eee; overflow: hidden; display: none; }
     .progress .bar { height: 100%; width: 0%; background: var(--brand); transition: width .2s; }
     .hidden { display: none !important; }
+    /* A second panel on the same page: the content the admin can
+       edit without a developer. Separated by a rule so it never
+       gets confused with the upload form above it. */
+    .panel { margin-top: 34px; border-top: 2px solid #efe6d9; padding-top: 22px; }
+    .panel h2 {
+      font-size: 17px; color: var(--brand-dark); margin-bottom: 2px;
+    }
+    .panel .hint { font-size: 13px; color: #998a76; line-height: 1.45; }
+    textarea {
+      width: 100%; padding: 12px; border: 2px solid #e5ddd2;
+      border-radius: 10px; font-size: 15px; font-family: inherit;
+      resize: vertical; min-height: 84px;
+    }
+    textarea:focus { outline: none; border-color: var(--brand); }
+    button.secondary {
+      background: #fff; color: var(--brand-dark);
+      border: 2px solid var(--brand); margin-top: 18px; padding: 12px;
+      font-size: 15px;
+    }
+    button.secondary:hover { background: var(--brand-light); }
     .logout { text-align: center; margin-top: 16px; }
     .logout a { color: #aaa; font-size: 13px; text-decoration: none; }
   </style>
@@ -128,6 +148,30 @@
       <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
       <div id="uploadMsg" class="msg"></div>
 
+      <!-- ============ Plan de Lectura ============
+           Not a video: this is the card shown on diariopan.com and
+           inside the app. Editing it here changes both, with no new
+           app version and no deploy. -->
+      <div class="panel">
+        <h2>📖 Plan de Lectura</h2>
+        <p class="hint">
+          Esto cambia la tarjeta que se ve en la página y en la app.
+          Se actualiza al momento, sin subir una versión nueva.
+        </p>
+
+        <label for="planUrl">Enlace del PDF</label>
+        <input type="url" id="planUrl" placeholder="https://drive.google.com/..." autocomplete="off" />
+
+        <label for="planTitle">Título</label>
+        <input type="text" id="planTitle" placeholder="Plan de Lectura" />
+
+        <label for="planDesc">Descripción</label>
+        <textarea id="planDesc" placeholder="Una o dos líneas explicando qué es."></textarea>
+
+        <button id="planBtn" class="secondary">Guardar Plan de Lectura</button>
+        <div id="planMsg" class="msg"></div>
+      </div>
+
       <div class="logout"><a href="#" id="logoutLink">Cerrar sesión</a></div>
     </div>
   </div>
@@ -137,10 +181,59 @@
     const $ = (id) => document.getElementById(id);
     const show = (el, cls, text) => { el.className = "msg " + cls; el.textContent = text; };
 
+    // Show the admin area and load whatever is currently saved.
+    function openAdmin() {
+      $("loginView").classList.add("hidden");
+      $("uploadView").classList.remove("hidden");
+      loadPlan();
+    }
+
     // On page load: do we already have a valid admin session?
     // If yes, skip the login form entirely.
-    fetch("/api/admin/check").then((r) => {
-      if (r.ok) { $("loginView").classList.add("hidden"); $("uploadView").classList.remove("hidden"); }
+    fetch("/api/admin/check").then((r) => { if (r.ok) openAdmin(); });
+
+    // ----- Plan de Lectura -----
+    // Read the current values so the boxes show what is live today,
+    // not empty fields the admin has to retype from memory.
+    async function loadPlan() {
+      try {
+        const s = await fetch("/api/settings").then((r) => r.json());
+        $("planUrl").value = s.reading_plan_url || "";
+        $("planTitle").value = s.reading_plan_title || "";
+        $("planDesc").value = s.reading_plan_desc || "";
+      } catch {
+        show($("planMsg"), "err", "No se pudo leer el Plan de Lectura actual.");
+      }
+    }
+
+    $("planBtn").addEventListener("click", async () => {
+      $("planBtn").disabled = true;
+      try {
+        const r = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reading_plan_url: $("planUrl").value.trim(),
+            reading_plan_title: $("planTitle").value.trim(),
+            reading_plan_desc: $("planDesc").value.trim(),
+          }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+          // Echo back what the server stored, so a field left empty
+          // visibly falls back to its default instead of looking lost.
+          $("planUrl").value = data.settings.reading_plan_url;
+          $("planTitle").value = data.settings.reading_plan_title;
+          $("planDesc").value = data.settings.reading_plan_desc;
+          show($("planMsg"), "ok", "✅ Guardado. Ya se ve en la página y en la app.");
+        } else {
+          show($("planMsg"), "err", data.error || "No se pudo guardar.");
+        }
+      } catch {
+        show($("planMsg"), "err", "No se pudo conectar con el servidor.");
+      } finally {
+        $("planBtn").disabled = false;
+      }
     });
 
     // Default the date picker to today.
@@ -156,8 +249,7 @@
         body: JSON.stringify({ password: $("password").value.trim() }),
       });
       if (r.ok) {
-        $("loginView").classList.add("hidden");
-        $("uploadView").classList.remove("hidden");
+        openAdmin();
       } else {
         // Show the server's real message: "Contraseña incorrecta"
         // and "Demasiados intentos..." (rate limit) are different

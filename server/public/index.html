@@ -321,11 +321,11 @@
   <section id="mas">
     <div class="links">
 
-      <a class="feature" href="https://drive.google.com/file/d/1SCdFikj3DlsTYyI7DgHeR-SPQw-Y7cJd/view?usp=sharing" target="_blank" rel="noopener">
+      <a class="feature" id="planLink" href="https://drive.google.com/file/d/1SCdFikj3DlsTYyI7DgHeR-SPQw-Y7cJd/view?usp=sharing" target="_blank" rel="noopener">
         <div>
           <div class="k">Descarga e imprime</div>
-          <h3>Plan de Lectura</h3>
-          <p>La guía de lectura bíblica del año, día por día. Ábrela en el teléfono o imprímela para la mesa.</p>
+          <h3 id="planTitle">Plan de Lectura</h3>
+          <p id="planDesc">La guía de lectura bíblica del año, día por día. Ábrela en el teléfono o imprímela para la mesa.</p>
         </div>
         <span class="spacer"></span>
         <svg class="sheet" width="66" height="82" viewBox="0 0 66 82" aria-hidden="true">
@@ -542,6 +542,19 @@
       });
     }
   );
+
+  // The Plan de Lectura card is edited at /upload, so read it from
+  // the server rather than from this file. The markup above already
+  // holds the current values, so if this request fails the card
+  // simply stays as it is instead of going blank.
+  fetch("/api/settings")
+    .then(function (r) { return r.json(); })
+    .then(function (s) {
+      if (s.reading_plan_url) $("planLink").href = s.reading_plan_url;
+      if (s.reading_plan_title) $("planTitle").textContent = s.reading_plan_title;
+      if (s.reading_plan_desc) $("planDesc").textContent = s.reading_plan_desc;
+    })
+    .catch(function () {});
 
   // Keep the store buttons in sync with .env, like /descargar does.
   fetch("/api/store-links")

@@ -5,6 +5,7 @@
 //   /descargar         -> public page with the QR codes
 //   /api/videos/...    -> video API (see routes/videos.js)
 //   /api/devices/...   -> notification registration
+//   /api/settings      -> admin-editable content (Plan de Lectura)
 //   /api/admin/...     -> login/logout
 //
 // Run with:  npm start   (after filling in server/.env)
@@ -18,6 +19,7 @@ import { config } from "./config.js";
 import { handleLogin, handleLogout, requireAdmin } from "./auth.js";
 import videosRouter from "./routes/videos.js";
 import devicesRouter from "./routes/devices.js";
+import settingsRouter from "./routes/settings.js";
 import { startPushScheduler } from "./push.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +50,8 @@ app.get("/api/admin/check", requireAdmin, (req, res) => res.json({ ok: true }));
 // ---- The two APIs ----
 app.use("/api/videos", videosRouter);
 app.use("/api/devices", devicesRouter);
+// What the admin can edit at /upload (the Plan de Lectura card).
+app.use("/api/settings", settingsRouter);
 
 // ---- Pretty URLs for the pages ----
 // (the home page, public/index.html, is served automatically
