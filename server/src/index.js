@@ -40,6 +40,18 @@ app.set("env", process.env.NODE_ENV || "production");
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
+// Domain-validation files (.well-known). Served explicitly with
+// dotfiles:"allow" because express.static's default handling of
+// dot-folders varies between versions, and a certificate check that
+// 404s is a slow thing to debug. Certificate authorities and
+// certbot both look here.
+app.use(
+  "/.well-known",
+  express.static(path.join(__dirname, "..", "public", ".well-known"), {
+    dotfiles: "allow",
+  })
+);
+
 // Static files: the upload page, the download/QR page, logo, etc.
 app.use(express.static(path.join(__dirname, "..", "public")));
 
